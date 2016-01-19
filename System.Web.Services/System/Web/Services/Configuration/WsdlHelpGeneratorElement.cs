@@ -36,7 +36,7 @@ namespace System.Web.Services.Configuration
 
         internal string HelpGeneratorPath
         {
-            get { return Path.Combine(this.actualPath, this.Href); }
+            get { return this.actualPath == null?Path.Combine(GetConfigurationDirectory(), this.Href):Path.Combine(this.actualPath, this.Href); }
         }
 
         [ConfigurationProperty("href", IsRequired = true)]
