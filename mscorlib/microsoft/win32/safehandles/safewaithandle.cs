@@ -45,7 +45,12 @@ namespace Microsoft.Win32.SafeHandles {
         [ResourceConsumption(ResourceScope.Machine)]
         override protected bool ReleaseHandle()
         {
+#if MONO
+            NativeEventCalls.CloseEvent_internal (handle);
+            return true;
+#else
             return Win32Native.CloseHandle(handle);
+#endif
         }
     }
 }

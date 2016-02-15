@@ -11,7 +11,7 @@
 //            A writing system is the collection of scripts and
 //            orthographic rules required to represent a language as text.
 //
-//  Date:     Microsoft 31, 1999
+//  Date:     [....] 31, 1999
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -32,7 +32,7 @@ namespace System.Globalization {
 
     [Serializable]
     [System.Runtime.InteropServices.ComVisible(true)]
-    public class TextInfo : ICloneable, IDeserializationCallback
+    public partial class TextInfo : ICloneable, IDeserializationCallback
     {
         //--------------------------------------------------------------------//
         //                        Internal Information                        //
@@ -73,8 +73,10 @@ namespace System.Globalization {
         private String                          m_cultureName;      // Name of the culture that created this text info
         [NonSerialized]private CultureData      m_cultureData;      // Data record for the culture that made us, not for this textinfo
         [NonSerialized]private String           m_textInfoName;     // Name of the text info we're using (ie: m_cultureData.STEXTINFO)
+#if !MONO
         [NonSerialized]private IntPtr           m_dataHandle;       // Sort handle
         [NonSerialized]private IntPtr           m_handleOrigin;
+#endif
         [NonSerialized]private bool?            m_IsAsciiCasingSameAsInvariant;
 
 
@@ -103,7 +105,7 @@ namespace System.Globalization {
             this.m_cultureData = cultureData;
             this.m_cultureName = this.m_cultureData.CultureName;
             this.m_textInfoName = this.m_cultureData.STEXTINFO;
-#if !FEATURE_CORECLR
+#if !FEATURE_CORECLR && !MONO
             IntPtr handleOrigin;
             this.m_dataHandle = CompareInfo.InternalInitSortHandle(m_textInfoName, out handleOrigin);
             this.m_handleOrigin = handleOrigin;
@@ -178,7 +180,7 @@ namespace System.Globalization {
                 // Get the text info name belonging to that culture
                 this.m_cultureData = CultureInfo.GetCultureInfo(m_cultureName).m_cultureData;
                 this.m_textInfoName = this.m_cultureData.STEXTINFO;
-#if !FEATURE_CORECLR
+#if !FEATURE_CORECLR && !MONO
                 IntPtr handleOrigin;
                 this.m_dataHandle = CompareInfo.InternalInitSortHandle(m_textInfoName, out handleOrigin);
                 this.m_handleOrigin = handleOrigin;
@@ -231,7 +233,7 @@ namespace System.Globalization {
             // (not necessarily true for sorting, but OK for casing & then we apply normal hash code rules)
             return (Invariant.GetCaseInsensitiveHashCode(s, forceRandomizedHashing, additionalEntropy));
         }
-
+#if !MONO
         [System.Security.SecuritySafeCritical]
         [ResourceExposure(ResourceScope.None)]
         [ResourceConsumption(ResourceScope.Process, ResourceScope.Process)]
@@ -239,7 +241,7 @@ namespace System.Globalization {
         {
             return InternalTryFindStringOrdinalIgnoreCase(searchFlags, source, count, startIndex, value, value.Length, ref foundIndex);
         }
-
+#endif
         // This function doesn't check arguments. Please do check in the caller.
         // The underlying unmanaged code will assert the sanity of arguments.
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -278,9 +280,11 @@ namespace System.Globalization {
             }
 
             // fast path
+#if !MONO
             int ret = -1;
             if (TryFastFindStringOrdinalIgnoreCase(Microsoft.Win32.Win32Native.FIND_FROMSTART, source, startIndex, value, count, ref ret))
                 return ret;
+#endif
 
             // the search space within [source] starts at offset [startIndex] inclusive and includes
             // [count] characters (thus the last included character is at index [startIndex + count -1]
@@ -324,9 +328,11 @@ namespace System.Globalization {
             }
 
             // fast path
+#if !MONO
             int ret = -1;
             if (TryFastFindStringOrdinalIgnoreCase(Microsoft.Win32.Win32Native.FIND_FROMEND, source, startIndex, value, count, ref ret))
                 return ret;
+#endif
 
             // the search space within [source] ends at offset [startIndex] inclusive
             // and includes [count] characters 
@@ -544,7 +550,11 @@ namespace System.Globalization {
             {
                 return ToLowerAsciiInvariant(c);
             }
+#if MONO
+            return ToLowerInternal (c);
+#else
             return (InternalChangeCaseChar(this.m_dataHandle, this.m_handleOrigin, this.m_textInfoName, c, false));
+#endif
         }
 
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -553,8 +563,11 @@ namespace System.Globalization {
             if (str == null) { throw new ArgumentNullException("str"); }
             Contract.EndContractBlock();
 
+#if MONO
+            return ToLowerInternal (str);
+#else
             return InternalChangeCaseString(this.m_dataHandle, this.m_handleOrigin, this.m_textInfoName, str, false);
-
+#endif
         }
 
         static private Char ToLowerAsciiInvariant(Char c)
@@ -582,7 +595,12 @@ namespace System.Globalization {
             {
                 return ToUpperAsciiInvariant(c);
             }
+
+#if MONO
+            return ToUpperInternal (c);
+#else
             return (InternalChangeCaseChar(this.m_dataHandle, this.m_handleOrigin, this.m_textInfoName, c, true));
+#endif
         }
 
 
@@ -591,7 +609,11 @@ namespace System.Globalization {
         {
             if (str == null) { throw new ArgumentNullException("str"); }
             Contract.EndContractBlock();
+#if MONO
+            return ToUpperInternal (str);
+#else
             return InternalChangeCaseString(this.m_dataHandle, this.m_handleOrigin, this.m_textInfoName, str, true);
+#endif
         }
 
         static private Char ToUpperAsciiInvariant(Char c)
@@ -614,10 +636,14 @@ namespace System.Globalization {
             {
                 if (m_IsAsciiCasingSameAsInvariant == null)
                 {
+#if MONO
+                    m_IsAsciiCasingSameAsInvariant = !(m_cultureData.SISO639LANGNAME == "az" || m_cultureData.SISO639LANGNAME == "tr");
+#else
                     m_IsAsciiCasingSameAsInvariant =
                         CultureInfo.GetCultureInfo(m_textInfoName).CompareInfo.Compare("abcdefghijklmnopqrstuvwxyz",
                                                                              "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                                                                              CompareOptions.IgnoreCase) == 0;
+#endif
                 }
                 return (bool)m_IsAsciiCasingSameAsInvariant;
             }
@@ -946,10 +972,31 @@ namespace System.Globalization {
             }
             Contract.EndContractBlock();
 
+#if MONO
+			return this == s_Invariant ? GetInvariantCaseInsensitiveHashCode (str) : StringComparer.CurrentCultureIgnoreCase.GetHashCode (str);
+#else
             // Return our result
             return (InternalGetCaseInsHash(this.m_dataHandle, this.m_handleOrigin, this.m_textInfoName, str, forceRandomizedHashing, additionalEntropy));
+#endif
         }
-
+#if MONO
+		unsafe int GetInvariantCaseInsensitiveHashCode (string str)
+		{
+			fixed (char * c = str) {
+				char * cc = c;
+				char * end = cc + str.Length - 1;
+				int h = 0;
+				for (;cc < end; cc += 2) {
+					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
+					h = (h << 5) - h + Char.ToUpperInvariant (cc [1]);
+				}
+				++end;
+				if (cc < end)
+					h = (h << 5) - h + Char.ToUpperInvariant (*cc);
+				return h;
+			}
+		}
+#else
         // Change case (ToUpper/ToLower) -- COMNlsInfo::InternalChangeCaseChar
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
@@ -985,6 +1032,7 @@ namespace System.Globalization {
         [SuppressUnmanagedCodeSecurity]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static unsafe extern bool InternalTryFindStringOrdinalIgnoreCase(int searchFlags, String source, int sourceCount, int startIndex, String target, int targetCount, ref int foundIndex);
+#endif
     }
 
 }

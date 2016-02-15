@@ -122,6 +122,7 @@ namespace System.Globalization {
         internal int firstDayOfWeek = -1;
         internal int calendarWeekRule = -1;
 
+[NonSerialized]
         [OptionalField(VersionAdded = 1)]
         internal String fullDateTimePattern  = null;        // long date + long time (whidbey expects, arrowhead doesn't)
 
@@ -191,7 +192,7 @@ namespace System.Globalization {
         static bool InitPreferExistingTokens()
         {
             bool ret = false;
-#if !FEATURE_CORECLR
+#if !FEATURE_CORECLR && !MONO
             ret = DateTime.LegacyParseMode();
 #endif
             return ret;
@@ -2216,7 +2217,6 @@ namespace System.Globalization {
                 return m_compareInfo;
             }
         }
-
 
         internal const DateTimeStyles InvalidDateTimeStyles = ~(DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite
                                                                | DateTimeStyles.AllowInnerWhite | DateTimeStyles.NoCurrentDateDefault

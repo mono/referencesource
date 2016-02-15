@@ -64,6 +64,11 @@ namespace System.Globalization {
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
         {
+#if MONO
+            // Mono version of CultureInfo used to serialize invariant calendar as 0 type
+            if (m_type == 0)
+                m_type = GregorianCalendarTypes.Localized;
+#endif
             if (m_type < GregorianCalendarTypes.Localized || 
                 m_type > GregorianCalendarTypes.TransliteratedFrench) 
             {

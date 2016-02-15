@@ -54,9 +54,13 @@ namespace System {
 
     [Serializable]
     [System.Security.Permissions.HostProtection(MayLeakOnAbort = true)]
+#if MOBILE
+    [TypeForwardedFrom("System.Core, Version=2.0.5.0, Culture=Neutral, PublicKeyToken=7cec85d7bea7798e")]
+#else
     [TypeForwardedFrom("System.Core, Version=3.5.0.0, Culture=Neutral, PublicKeyToken=b77a5c561934e089")]
-    sealed public class TimeZoneInfo : IEquatable<TimeZoneInfo>, ISerializable, IDeserializationCallback {
-
+#endif
+    sealed public partial class TimeZoneInfo : IEquatable<TimeZoneInfo>, ISerializable, IDeserializationCallback {
+#if !MONO
         // ---- SECTION:  members supporting exposed properties -------------*
         private String m_id;
         private String m_displayName;
@@ -2905,7 +2909,7 @@ namespace System {
         }
 #endif // FEATURE_WIN32_REGISTRY
 
-
+#endif
         //
         // UtcOffsetOutOfRange -
         //
@@ -2916,7 +2920,7 @@ namespace System {
             return (offset.TotalHours < -14.0 || offset.TotalHours > 14.0);
         }
 
-
+#if MONO
         //
         // ValidateTimeZoneInfo -
         //
@@ -2985,7 +2989,7 @@ namespace System {
                 }
             }
         }
-
+#endif
 /*============================================================
 **
 ** Class: TimeZoneInfo.AdjustmentRule
@@ -3001,7 +3005,11 @@ namespace System {
 ============================================================*/
         [Serializable]
         [System.Security.Permissions.HostProtection(MayLeakOnAbort = true)]
+#if MOBILE
+        [TypeForwardedFrom("System.Core, Version=2.0.5.0, Culture=Neutral, PublicKeyToken=7cec85d7bea7798e")]
+#else
         [TypeForwardedFrom("System.Core, Version=3.5.0.0, Culture=Neutral, PublicKeyToken=b77a5c561934e089")]
+#endif
         sealed public class AdjustmentRule : IEquatable<AdjustmentRule>, ISerializable, IDeserializationCallback {
 
             // ---- SECTION:  members supporting exposed properties -------------*
@@ -3268,7 +3276,11 @@ namespace System {
 ============================================================*/
         [Serializable]
         [System.Security.Permissions.HostProtection(MayLeakOnAbort = true)]
+#if MOBILE
+        [TypeForwardedFrom("System.Core, Version=2.0.5.0, Culture=Neutral, PublicKeyToken=7cec85d7bea7798e")]
+#else
         [TypeForwardedFrom("System.Core, Version=3.5.0.0, Culture=Neutral, PublicKeyToken=b77a5c561934e089")]
+#endif
         public struct TransitionTime : IEquatable<TransitionTime>, ISerializable, IDeserializationCallback {
 
             // ---- SECTION:  members supporting exposed properties -------------*

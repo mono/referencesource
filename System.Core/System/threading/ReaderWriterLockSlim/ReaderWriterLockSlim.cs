@@ -5,7 +5,7 @@ using System.Threading;
 using System.Security.Permissions;
 using System.Runtime.CompilerServices;
 #if FEATURE_NETCORE
-using System.Core;  // for strongly typed resources
+//using System.Core;  // for strongly typed resources
 #endif
 
 namespace System.Threading
@@ -155,7 +155,9 @@ namespace System.Threading
             lockID = Interlocked.Increment(ref s_nextLockID);
         }
 
+#if NET_4_5
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         private static bool IsRWEntryEmpty(ReaderWriterCount rwc)
         {
             if (rwc.lockID == 0)
@@ -179,7 +181,9 @@ namespace System.Threading
         /// entry for this thread, but doesn't want to add one if an existing one
         /// could not be found.
         /// </summary>
+#if NET_4_5
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         private ReaderWriterCount GetThreadRWCount(bool dontAllocate)
         {
 			ReaderWriterCount rwc = t_rwc;
@@ -1113,7 +1117,9 @@ namespace System.Threading
             return owners & READER_MASK;
         }
 
+#if NET_4_5
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         private void EnterMyLock()
         {
             if (Interlocked.CompareExchange(ref myLock, 1, 0) != 0)

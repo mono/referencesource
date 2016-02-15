@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 namespace System.Reflection.Emit 
@@ -19,7 +19,7 @@ namespace System.Reflection.Emit
     using System.Security.Permissions;
     using System.Runtime.InteropServices;
     using System.Diagnostics.Contracts;
-
+#if !MONO
     [HostProtection(MayLeakOnAbort = true)]
     [ClassInterface(ClassInterfaceType.None)]
     [ComDefaultInterface(typeof(_MethodBuilder))]
@@ -1396,6 +1396,7 @@ namespace System.Reflection.Emit
 
         #endregion
     }
+#endif
 
     /// <summary>
     /// Describes exception handler in a method body.
@@ -1404,7 +1405,7 @@ namespace System.Reflection.Emit
     [ComVisible(false)]
     public struct ExceptionHandler : IEquatable<ExceptionHandler>
     {
-        // Keep in sync with unmanged structure. 
+        // Keep in [....] with unmanged structure. 
         internal readonly int m_exceptionClass;
         internal readonly int m_tryStartOffset;
         internal readonly int m_tryEndOffset;

@@ -364,6 +364,17 @@ namespace System.IO
             }
             return charBuffer[charPos];
         }
+
+#if MONO
+        //
+        // Used internally by our console, as it previously depended on Peek() being a
+        // routine that would not block.
+        //
+        internal bool DataAvailable ()
+        {
+            return charPos < charLen;
+        }
+#endif
         
         public override int Read() {
             if (stream == null)
@@ -1123,7 +1134,7 @@ namespace System.IO
         // and is thus lifted to a state machine type, access will be slow.
         // As a workaround, we either cache instance fields in locals or use properties to access such fields.
 
-        // See Dev11 
+        // See Dev11 bug #370300 for more info.
         
         private Int32 CharLen_Prop {
             get { return charLen; }

@@ -2,8 +2,8 @@
 // <copyright file="DbConnectionInternal.cs" company="Microsoft">
 //      Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.ProviderBase {
@@ -58,7 +58,7 @@ namespace System.Data.ProviderBase {
         private SysTx.Transaction _enlistedTransactionOriginal;     
 
 #if DEBUG
-        private int                      _activateCount;            // debug only counter to verify activate/deactivates are in sync.
+        private int                      _activateCount;            // debug only counter to verify activate/deactivates are in [....].
 #endif //DEBUG
 
         protected DbConnectionInternal() : this(ConnectionState.Open, true, false) { // V1.1.3300
@@ -259,15 +259,15 @@ namespace System.Data.ProviderBase {
                 //
                 // That means that:
                 //
-                //    _pooledCount > 1    connection is in the pool multiple times (this is a serious 
-
-
-
-
-
-
-
-
+                //    _pooledCount > 1    connection is in the pool multiple times (this is a serious bug...)
+                //    _pooledCount == 1   connection is in the pool
+                //    _pooledCount == 0   connection is out of the pool
+                //    _pooledCount == -1  connection is not a pooled connection; we shouldn't be here for non-pooled connections.
+                //    _pooledCount < -1   connection out of the pool multiple times (not sure how this could happen...)
+                //
+                // Now, our job is to return TRUE when the connection is out
+                // of the pool and it's owning object is no longer around to
+                // return it.
 
                 bool value = !IsTxRootWaitingForTxEnd && (_pooledCount < 1) && !_owningObject.IsAlive;
                 return value;
@@ -323,7 +323,7 @@ namespace System.Data.ProviderBase {
             get;
         }
 
-        // this should be abstract but untill it is added to all the providers virtual will have to do Microsoft
+        // this should be abstract but untill it is added to all the providers virtual will have to do [....]
         virtual public string ServerVersionNormalized {
             get{
                 throw ADP.NotSupported();
@@ -356,7 +356,9 @@ namespace System.Data.ProviderBase {
 
             Activate(transaction);
 
+#if !MOBILE
             PerformanceCounters.NumberOfActiveConnections.Increment();
+#endif
         }
 
         internal void AddWeakReference(object value, int tag) {
@@ -448,7 +450,9 @@ namespace System.Data.ProviderBase {
                         else {
                             Deactivate();   // ensure we de-activate non-pooled connections, or the data readers and transactions may not get cleaned up...
 
+#if !MOBILE
                             PerformanceCounters.HardDisconnectsPerSecond.Increment();
+#endif
                         
                             // To prevent an endless recursion, we need to clear
                             // the owning object before we call dispose so that
@@ -463,11 +467,17 @@ namespace System.Data.ProviderBase {
                                 SetInStasis();                           
                             }
                             else {
+#if MONO_PARTIAL_DATA_IMPORT
+				Dispose();
+#else
+#if !MOBILE
                                 PerformanceCounters.NumberOfNonPooledConnections.Decrement();
+#endif
                                 if (this.GetType() != typeof(System.Data.SqlClient.SqlInternalConnectionSmi))
                                 {
                                     Dispose();
                                 }
+#endif
                             }
                         }
                     }
@@ -513,9 +523,11 @@ namespace System.Data.ProviderBase {
             Debug.Assert(0 == activateCount, "activated multiple times?");
 #endif // DEBUG
 
+#if !MOBILE
             if (PerformanceCounters != null) { // Pool.Clear will DestroyObject that will clean performanceCounters before going here 
                 PerformanceCounters.NumberOfActiveConnections.Decrement();
             }
+#endif
 
             if (!_connectionIsDoomed && Pool.UseLoadBalancing) {
                 // If we're not already doomed, check the connection's lifetime and
@@ -569,7 +581,9 @@ namespace System.Data.ProviderBase {
                 // once and for all, or the server will have fits about us
                 // leaving connections open until the client-side GC kicks 
                 // in.
+#if !MOBILE
                 PerformanceCounters.NumberOfNonPooledConnections.Decrement();
+#endif
                 Dispose();
             }
             // When _pooledCount is 0, the connection is a pooled connection
@@ -839,7 +853,9 @@ namespace System.Data.ProviderBase {
         internal void SetInStasis() {
             _isInStasis = true;
             Bid.PoolerTrace("<prov.DbConnectionInternal.SetInStasis|RES|CPOOL> %d#, Non-Pooled Connection has Delegated Transaction, waiting to Dispose.\n", ObjectID);
+#if !MOBILE
             PerformanceCounters.NumberOfStasisConnections.Increment();
+#endif
         }
 
         private void TerminateStasis(bool returningToPool) {
@@ -849,7 +865,9 @@ namespace System.Data.ProviderBase {
             else {
                 Bid.PoolerTrace("<prov.DbConnectionInternal.TerminateStasis|RES|CPOOL> %d#, Delegated Transaction has ended, connection is closed/leaked.  Disposing.\n", ObjectID);
             }
+#if !MOBILE
             PerformanceCounters.NumberOfStasisConnections.Decrement();
+#endif
             _isInStasis = false;
         }
 

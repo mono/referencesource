@@ -7,7 +7,7 @@
 //
 // TaskScheduler.cs
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 //
 // This file contains the primary interface and management of tasks and queues.  
 //
@@ -335,6 +335,14 @@ namespace System.Threading.Tasks
             {
                 TaskScheduler current = InternalCurrent;
                 return current ?? TaskScheduler.Default;
+            }
+        }
+
+        internal static bool IsDefault
+        {
+            get
+            {
+                return Current == Default;
             }
         }
 

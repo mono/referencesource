@@ -1,9 +1,12 @@
+#if MOBILE_LEGACY
+#define FEATURE_REMOTING
+#endif
 // ==++==
 // 
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 /*============================================================
 **
 ** Class:  ExecutionContext
@@ -344,7 +347,7 @@ namespace System.Threading
             ExecutionContext.Reader innerEC = currentThread.GetExecutionContextReader();
             currentThread.SetExecutionContext(outerEC, outerECBelongsToScope);
 
-#if DEBUG
+#if !MONO && DEBUG
             try
             {
                 currentThread.ForbidExecutionContextMutation = true;
@@ -367,7 +370,7 @@ namespace System.Threading
 #endif
 
                 thread = null; // this will prevent the switcher object being used again
-#if DEBUG
+#if !MONO && DEBUG
             }
             finally
             {
@@ -447,7 +450,7 @@ namespace System.Threading
         
         public override int GetHashCode()
         {
-            // review - Microsoft
+            // review - [....]
             return _thread == null ? ToString().GetHashCode() : _thread.GetHashCode();
         }
         
@@ -1234,7 +1237,7 @@ namespace System.Threading
 
             if (!ecCurrent.IsNull)
             {
-                // capture the sync context
+                // capture the [....] context
                 if (0 == (options & CaptureOptions.IgnoreSyncCtx))
                     syncCtxNew = (ecCurrent.SynchronizationContext == null) ? null : ecCurrent.SynchronizationContext.CreateCopy();
 

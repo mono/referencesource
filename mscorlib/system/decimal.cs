@@ -225,7 +225,18 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern Decimal(double value);
-    
+
+#if MONO
+	public static long ToOACurrency (decimal value)
+	{
+		return (long) (value * 10000);
+	}
+
+	public static decimal FromOACurrency (long cy)
+	{
+		return (decimal)cy / (decimal)10000;
+	}
+#else
         // Constructs a Decimal from a Currency value.
         //
         internal Decimal(Currency value) {
@@ -247,7 +258,7 @@ namespace System {
         {
             return Currency.ToDecimal(Currency.FromOACurrency(cy));
         }
-
+#endif
     
         // Constructs a Decimal from an integer array containing a binary
         // representation. The bits argument must be a non-null integer
@@ -269,11 +280,20 @@ namespace System {
         // equally valid, and all are numerically equivalent.
         //
         public Decimal(int[] bits) {
-            this.lo    = 0;
-            this.mid   = 0;
-            this.hi    = 0;
-            this.flags = 0;
-            SetBits(bits);
+            if (bits==null)
+                throw new ArgumentNullException("bits");
+            Contract.EndContractBlock();
+            if (bits.Length == 4) {
+                int f = bits[3];
+                if ((f & ~(SignMask | ScaleMask)) == 0 && (f & ScaleMask) <= (28 << 16)) {
+                    lo = bits[0];
+                    mid = bits[1];
+                    hi = bits[2];
+                    flags = f;
+                    return;
+                }
+            }
+            throw new ArgumentException(Environment.GetResourceString("Arg_DecBitCtor"));
         }
 
         private void SetBits(int[] bits) {
@@ -366,11 +386,11 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void FCallAddSub(ref Decimal d1, ref Decimal d2, byte bSign);
-        
-        [System.Security.SecurityCritical]  // auto-generated
-        [ResourceExposure(ResourceScope.None)]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        private static extern void FCallAddSubOverflowed(ref Decimal d1, ref Decimal d2, byte bSign, ref bool overflowed);
+
+        //[System.Security.SecurityCritical]  // auto-generated
+        //[ResourceExposure(ResourceScope.None)]
+        //[MethodImplAttribute(MethodImplOptions.InternalCall)]
+        //private static extern void FCallAddSubOverflowed(ref Decimal d1, ref Decimal d2, byte bSign, ref bool overflowed);
         
         // Rounds a Decimal to an integer value. The Decimal argument is rounded
         // towards positive infinity.
@@ -435,11 +455,10 @@ namespace System {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void FCallDivide(ref Decimal d1, ref Decimal d2);
 
-        [System.Security.SecurityCritical]  // auto-generated
-        [ResourceExposure(ResourceScope.None)]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        private static extern void FCallDivideOverflowed(ref Decimal d1, ref Decimal d2, ref bool overflowed);
-
+        //[System.Security.SecurityCritical]  // auto-generated
+        //[ResourceExposure(ResourceScope.None)]
+        //[MethodImplAttribute(MethodImplOptions.InternalCall)]
+        //private static extern void FCallDivideOverflowed(ref Decimal d1, ref Decimal d2, ref bool overflowed);
     
         // Checks if this Decimal is equal to a given object. Returns true
         // if the given object is a boxed Decimal and its value is equal to the
@@ -748,10 +767,10 @@ namespace System {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void FCallMultiply(ref Decimal d1, ref Decimal d2);
     
-        [System.Security.SecurityCritical]  // auto-generated
-        [ResourceExposure(ResourceScope.None)]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        private static extern void FCallMultiplyOverflowed(ref Decimal d1, ref Decimal d2, ref bool overflowed);
+        //[System.Security.SecurityCritical]  // auto-generated
+        //[ResourceExposure(ResourceScope.None)]
+        //[MethodImplAttribute(MethodImplOptions.InternalCall)]
+        //private static extern void FCallMultiplyOverflowed(ref Decimal d1, ref Decimal d2, ref bool overflowed);
     
         // Returns the negated value of the given Decimal. If d is non-zero,
         // the result is -d. If d is zero, the result is zero.
@@ -865,7 +884,7 @@ namespace System {
             return (short)temp;
         }
     
-    
+#if !MONO
         // Converts a Decimal to a Currency. Since a Currency
         // has fewer significant digits than a Decimal, this operation may
         // produce round-off errors.
@@ -882,7 +901,8 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void FCallToCurrency(ref Currency result, Decimal d);
-    
+#endif
+	
         // Converts a Decimal to a double. Since a double has fewer significant
         // digits than a Decimal, this operation may produce round-off errors.
         //

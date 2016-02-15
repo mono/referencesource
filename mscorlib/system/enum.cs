@@ -34,11 +34,16 @@ namespace System
                 ulong[] values = null;
                 String[] names = null;
 
+#if MONO
+                if (!GetEnumValuesAndNames (enumType, out values, out names))
+                    Array.Sort (values, names, System.Collections.Generic.Comparer<ulong>.Default);
+#else
                 GetEnumValuesAndNames(
                     enumType.GetTypeHandleInternal(),
                     JitHelpers.GetObjectHandleOnStack(ref values),
                     JitHelpers.GetObjectHandleOnStack(ref names),
                     getNames);
+#endif
 
                 entry = new ValuesAndNames(values, names);
                 enumType.GenericCache = entry;
@@ -249,12 +254,17 @@ namespace System
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal static extern RuntimeType InternalGetUnderlyingType(RuntimeType enumType);
 
+#if MONO
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        private static extern bool GetEnumValuesAndNames (RuntimeType enumType, out ulong[] values, out string[] names);
+#else
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode)]
         [System.Security.SuppressUnmanagedCodeSecurity]
         private static extern void GetEnumValuesAndNames(RuntimeTypeHandle enumType, ObjectHandleOnStack values, ObjectHandleOnStack names, bool getNames);
 
+#endif
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -686,10 +696,18 @@ namespace System
         }
         #endregion
 
+#if MONO
+        [MethodImplAttribute (MethodImplOptions.InternalCall)]
+        extern object get_value ();
+#endif
+
         #region Private Methods
         [System.Security.SecuritySafeCritical]
         internal unsafe Object GetValue()
         {
+#if MONO
+            return get_value ();
+#else
             fixed (void* pValue = &JitHelpers.GetPinningHelper(this).m_data)
             {
                 switch (InternalGetCorElementType())
@@ -727,6 +745,7 @@ namespace System
                         return null;
                 }
             }
+#endif
         }
 
         [System.Security.SecurityCritical]  // auto-generated
@@ -737,19 +756,31 @@ namespace System
         [System.Security.SecuritySafeCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
+#if MONO
+        private extern int get_hashcode ();
+#else
         private extern CorElementType InternalGetCorElementType();
-
+#endif
         #endregion
 
         #region Object Overrides
+#if MONO
+        public override bool Equals (object obj)
+        {
+            return DefaultEquals (this, obj);
+        }
+#else
         [System.Security.SecuritySafeCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern override bool Equals(Object obj);
-
+#endif
         [System.Security.SecuritySafeCritical]
         public override unsafe int GetHashCode()
         {
+#if MONO
+            return get_hashcode ();
+#else
             // Avoid boxing by inlining GetValue()
             // return GetValue().GetHashCode();
 
@@ -790,6 +821,7 @@ namespace System
                         return 0;
                 }
             }
+#endif
         }
 
         public override String ToString()

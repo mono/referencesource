@@ -16,6 +16,7 @@ namespace System.Text {
     using System.Text;
     using System.Runtime;
     using System.Runtime.Serialization;
+    using System.Runtime.InteropServices;
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.Versioning;
@@ -43,6 +44,7 @@ namespace System.Text {
     // 
     [System.Runtime.InteropServices.ComVisible(true)]
     [Serializable]
+    [StructLayout (LayoutKind.Sequential)]
     public sealed class StringBuilder : ISerializable {
         // A StringBuilder is internally represented as a linked list of blocks each of which holds
         // a chunk of the string.  It turns out string as a whole can also be represented as just a chunk, 
@@ -676,7 +678,7 @@ namespace System.Text {
                     Append(valueChars, value.Length);
             }
         }
-
+#if !MONO
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [SecurityCritical]
@@ -686,7 +688,7 @@ namespace System.Text {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [SecurityCritical]
         internal unsafe extern void ReplaceBufferAnsiInternal(sbyte* newBuffer, int newLength);
-
+#endif
         // Appends a copy of the characters in value from startIndex to startIndex +
         // count at the end of this string builder.
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -1879,7 +1881,7 @@ namespace System.Text {
                 }
             }
         }
-
+#if !MONO
          // Copies the source StringBuilder to the destination IntPtr memory allocated with len bytes.
         [System.Security.SecurityCritical]  // auto-generated
         internal unsafe void InternalCopy(IntPtr dest, int len) {
@@ -1905,7 +1907,7 @@ namespace System.Text {
                 currentSrc = currentSrc.m_ChunkPrevious;
             } while(currentSrc != null);
         }
-
+#endif
         /// <summary>
         /// Finds the chunk for the logical index (number of characters in the whole stringbuilder) 'index'
         /// YOu can then get the offset in this chunk by subtracting the m_BlockOffset field from 'index' 

@@ -2,7 +2,7 @@
 // <copyright file="XslException.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 //------------------------------------------------------------------------------
 
 using System.CodeDom.Compiler;
@@ -124,6 +124,7 @@ namespace System.Xml.Xsl {
             SetSourceLineInfo(lineInfo);
         }
 
+#if !DISABLE_XSLT_SCRIPT
         internal XslLoadException(CompilerError error)
             : base(Res.Xml_UserException, new string[] { error.ErrorText })
         {
@@ -148,6 +149,7 @@ namespace System.Xml.Xsl {
 
             SetSourceLineInfo(new SourceLineInfo(error.FileName, errorLine, errorColumn, errorLine, errorColumn));
         }
+#endif
 
         internal void SetSourceLineInfo(ISourceLineInfo lineInfo) {
             Debug.Assert(lineInfo == null || lineInfo.Uri != null);

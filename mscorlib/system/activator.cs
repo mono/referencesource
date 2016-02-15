@@ -19,7 +19,7 @@ namespace System {
     using System.Runtime.Remoting;
 #if FEATURE_REMOTING    
     using System.Runtime.Remoting.Activation;
-    using Message = System.Runtime.Remoting.Messaging.Message;
+//    using Message = System.Runtime.Remoting.Messaging.Message;
 #endif
     using System.Security;
     using CultureInfo = System.Globalization.CultureInfo;
@@ -73,10 +73,10 @@ namespace System {
             if ((object)type == null)
                 throw new ArgumentNullException("type");
             Contract.EndContractBlock();
-
+#if !FULL_AOT_RUNTIME
             if (type is System.Reflection.Emit.TypeBuilder)
                 throw new NotSupportedException(Environment.GetResourceString("NotSupported_CreateInstanceWithTypeBuilder"));
-
+#endif
             // If they didn't specify a lookup, then we will provide the default lookup.
             if ((bindingAttr & (BindingFlags) LookupMask) == 0)
                 bindingAttr |= Activator.ConstructorDefault;
@@ -144,6 +144,10 @@ namespace System {
         static public ObjectHandle CreateInstance(String assemblyName,
                                                   String typeName)
         {
+#if MONO
+            if(assemblyName == null)
+              assemblyName = Assembly.GetCallingAssembly ().GetName ().Name;
+#endif
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return CreateInstance(assemblyName,
                                   typeName, 
@@ -164,6 +168,10 @@ namespace System {
                                                   Object[] activationAttributes)
                                                   
         {
+#if MONO
+            if(assemblyName == null)
+              assemblyName = Assembly.GetCallingAssembly ().GetName ().Name;
+#endif
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return CreateInstance(assemblyName,
                                   typeName, 
@@ -262,6 +270,10 @@ namespace System {
                                                   Object[] activationAttributes,
                                                   Evidence securityInfo)
         {
+#if MONO
+            if(assemblyName == null)
+              assemblyName = Assembly.GetCallingAssembly ().GetName ().Name;
+#endif
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return CreateInstance(assemblyName,
                                   typeName,
@@ -286,6 +298,10 @@ namespace System {
                                                   CultureInfo culture,
                                                   object[] activationAttributes)
         {
+#if MONO
+            if(assemblyName == null)
+              assemblyName = Assembly.GetCallingAssembly ().GetName ().Name;
+#endif
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return CreateInstance(assemblyName,
                                   typeName,
@@ -317,7 +333,6 @@ namespace System {
                 throw new NotSupportedException(Environment.GetResourceString("NotSupported_RequiresCasPolicyImplicit"));
             }
 #endif // FEATURE_CAS_POLICY
-
             Type type = null;
             Assembly assembly = null;
             if (assemblyString == null) {
@@ -593,9 +608,10 @@ namespace System {
                                                                    activationAttributes,
                                                                    null);
         }
-#if FEATURE_COMINTEROP
+#if FEATURE_COMINTEROP || MONO_COM || MOBILE_LEGACY
 
-#if FEATURE_CLICKONCE
+#if FEATURE_CLICKONCE || MOBILE_LEGACY
+#if FEATURE_CLICKONCE || MONO_FEATURE_MULTIPLE_APPDOMAINS
         [System.Security.SecuritySafeCritical]  // auto-generated
         public static ObjectHandle CreateInstance (ActivationContext activationContext) {
             AppDomainManager domainManager = AppDomain.CurrentDomain.DomainManager;
@@ -613,6 +629,17 @@ namespace System {
 
             return domainManager.ApplicationActivator.CreateInstance(activationContext, activationCustomData);
         }
+#else
+        [Obsolete ("Activator.CreateInstance (ActivationContext) is not supported on this platform.", true)]
+        public static ObjectHandle CreateInstance (ActivationContext activationContext) {
+            throw new PlatformNotSupportedException ("Activator.CreateInstance (ActivationContext) is not supported on this platform.");
+        }
+
+        [Obsolete ("Activator.CreateInstance (ActivationContext, string[]) is not supported on this platform.", true)]
+        public static ObjectHandle CreateInstance (ActivationContext activationContext, string[] activationCustomData) {
+            throw new PlatformNotSupportedException ("Activator.CreateInstance (ActivationContext) is not supported on this platform.");
+        }
+#endif
 #endif // FEATURE_CLICKONCE
 
         [ResourceExposure(ResourceScope.Machine)]
@@ -667,7 +694,7 @@ namespace System {
         }
 #endif // FEATURE_COMINTEROP                                  
 
-#if FEATURE_REMOTING
+#if FEATURE_REMOTING || MOBILE_LEGACY
         //  This method is a helper method and delegates to the remoting 
         //  services to do the actual work. 
         [System.Security.SecurityCritical]  // auto-generated_required

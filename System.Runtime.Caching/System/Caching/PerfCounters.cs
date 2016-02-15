@@ -41,12 +41,14 @@ namespace System.Runtime.Caching {
                 // if the host has an identifier, use it
                 string appId = (ai != null) ? ai.GetApplicationId() : null;
                 // otherwise, use the process name wihtout file extension
+#if !MONO
                 if (String.IsNullOrEmpty(appId)) {
                     StringBuilder sb = new StringBuilder(512);
                     if (UnsafeNativeMethods.GetModuleFileName(IntPtr.Zero, sb, 512) != 0) {
                         appId = Path.GetFileNameWithoutExtension(sb.ToString());
                     }
                 }
+#endif
                 // if all else fails, use AppDomain.FriendlyName
                 if (String.IsNullOrEmpty(appId)) {  
                     appId = AppDomain.CurrentDomain.FriendlyName;
@@ -135,7 +137,7 @@ namespace System.Runtime.Caching {
                 for (int i = 0; i < NUM_COUNTERS; i++) {
                     PerformanceCounter counter = counters[i];
                     if (counter != null) {
-                        // decrement counter by its current value, to zero it out for this instance of the named cache (see Dev10 
+                        // decrement counter by its current value, to zero it out for this instance of the named cache (see Dev10 Bug 680819)
                         long value = Interlocked.Exchange(ref _counterValues[i], 0);
                         if (value != 0) {
                             counter.IncrementBy(-value);

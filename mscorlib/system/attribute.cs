@@ -17,13 +17,109 @@ namespace System {
 
     [Serializable]
     [AttributeUsageAttribute(AttributeTargets.All, Inherited = true, AllowMultiple=false)] 
+#if !MOBILE
     [ClassInterface(ClassInterfaceType.None)]
     [ComDefaultInterface(typeof(_Attribute))]
     [System.Runtime.InteropServices.ComVisible(true)]
-    public abstract class Attribute : _Attribute
+#endif
+    public abstract partial class Attribute
+#if !MOBILE
+        : _Attribute
+#endif
     {
         #region Private Statics
+#if MONO
+        static Attribute[] InternalGetCustomAttributes (PropertyInfo element, Type type, bool inherit)
+        {
+            return (Attribute []) MonoCustomAttrs.GetCustomAttributes (element, type, inherit);
+        }
 
+        static Attribute[] InternalGetCustomAttributes (EventInfo element, Type type, bool inherit)
+        {
+            return (Attribute []) MonoCustomAttrs.GetCustomAttributes (element, type, inherit);
+        }
+
+        static Attribute[] InternalParamGetCustomAttributes (ParameterInfo parameter, Type attributeType, bool inherit)
+        {
+            if (parameter.Member.MemberType != MemberTypes.Method)
+                return null;
+
+            var method = (MethodInfo) parameter.Member;
+            var definition = method.GetBaseDefinition ();
+
+			if (attributeType == null)
+				attributeType = typeof (Attribute);
+
+            if (method == definition)
+		return (Attribute []) parameter.GetCustomAttributes (attributeType, inherit);
+
+            var types = new List<Type> ();
+            var custom_attributes = new List<Attribute> ();
+
+            while (true) {
+                var param = method.GetParametersInternal () [parameter.Position];
+                var param_attributes = (Attribute []) param.GetCustomAttributes (attributeType, false);
+                foreach (var param_attribute in param_attributes) {
+                    var param_type = param_attribute.GetType ();
+                    if (types.Contains (param_type))
+                        continue;
+
+                    types.Add (param_type);
+                    custom_attributes.Add (param_attribute);
+                }
+
+                var base_method = method.GetBaseMethod ();
+                if (base_method == method)
+                    break;
+
+                method = base_method;
+            }
+
+            var attributes = (Attribute []) Array.CreateInstance (attributeType, custom_attributes.Count);
+            custom_attributes.CopyTo (attributes, 0);
+
+            return attributes;
+        }
+
+        static bool InternalIsDefined (PropertyInfo element, Type attributeType, bool inherit)
+        {
+            return MonoCustomAttrs.IsDefined (element, attributeType, inherit);
+        }
+
+        static bool InternalIsDefined (EventInfo element, Type attributeType, bool inherit)
+        {
+            return MonoCustomAttrs.IsDefined (element, attributeType, inherit);
+        }
+
+        static bool InternalParamIsDefined (ParameterInfo parameter, Type attributeType, bool inherit)
+        {
+            if (parameter.IsDefined (attributeType, inherit))
+                return true;
+
+            if (!inherit)
+                return false;
+
+            var member = parameter.Member;
+            if (member.MemberType != MemberTypes.Method)
+                return false;
+
+            var method = ((MethodInfo) member).GetBaseMethod ();
+
+            while (true) {
+                var param = method.GetParametersInternal () [parameter.Position];
+                if (param.IsDefined (attributeType, false))
+                    return true;
+
+                var base_method = method.GetBaseMethod ();
+                if (base_method == method)
+                    break;
+
+                method = base_method;
+            }
+
+            return false;
+        }
+#else
         #region PropertyInfo
         private static Attribute[] InternalGetCustomAttributes(PropertyInfo element, Type type, bool inherit)
         {
@@ -441,7 +537,7 @@ namespace System {
             return (Attribute[])Array.UnsafeCreateInstance(elementType, elementCount);
         }
         #endregion
-
+#endif
         #endregion
 
         #region Public Statics
@@ -949,7 +1045,7 @@ namespace System {
         public virtual bool IsDefaultAttribute() { return false; }
         #endregion
 
-#if !FEATURE_CORECLR
+#if !FEATURE_CORECLR && !MOBILE
         void _Attribute.GetTypeInfoCount(out uint pcTInfo)
         {
             throw new NotImplementedException();

@@ -3,7 +3,7 @@
 //   Copyright(c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 namespace System.Reflection
@@ -56,7 +56,7 @@ namespace System.Reflection
     [PermissionSetAttribute(SecurityAction.InheritanceDemand, Name = "FullTrust")]
 #pragma warning restore 618
     [System.Runtime.InteropServices.ComVisible(true)]
-    public abstract class MethodBase : MemberInfo, _MethodBase
+    public abstract partial class MethodBase : MemberInfo, _MethodBase
     {
         #region Static Members
         public static MethodBase GetMethodFromHandle(RuntimeMethodHandle handle)
@@ -64,7 +64,13 @@ namespace System.Reflection
             if (handle.IsNullHandle())
                 throw new ArgumentException(Environment.GetResourceString("Argument_InvalidHandle"));
 
+#if MONO
+            MethodBase m = GetMethodFromHandleInternalType (handle.Value, IntPtr.Zero);
+            if (m == null)
+                throw new ArgumentException ("The handle is invalid.");
+#else
             MethodBase m = RuntimeType.GetMethodBase(handle.GetMethodInfo());
+#endif
 
             Type declaringType = m.DeclaringType;
             if (declaringType != null && declaringType.IsGenericType)
@@ -81,9 +87,20 @@ namespace System.Reflection
             if (handle.IsNullHandle())
                 throw new ArgumentException(Environment.GetResourceString("Argument_InvalidHandle"));
 
+#if MONO
+            MethodBase m = GetMethodFromHandleInternalType (handle.Value, declaringType.Value);
+            if (m == null)
+                throw new ArgumentException ("The handle is invalid.");
+            return m;
+#else
             return RuntimeType.GetMethodBase(declaringType.GetRuntimeType(), handle.GetMethodInfo());
+#endif
         }
 
+#if MONO
+        [MethodImplAttribute (MethodImplOptions.InternalCall)]
+        public extern static MethodBase GetCurrentMethod ();
+#else
         [System.Security.DynamicSecurityMethod] // Specify DynamicSecurityMethod attribute to prevent inlining of the caller.
         [MethodImplAttribute(MethodImplOptions.NoInlining)] // Methods containing StackCrawlMark local var has to be marked non-inlineable
         public static MethodBase GetCurrentMethod()
@@ -91,6 +108,7 @@ namespace System.Reflection
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return RuntimeMethodInfo.InternalGetCurrentMethod(ref stackMark);
         }
+#endif
         #endregion
 
         #region Constructor
@@ -333,7 +351,7 @@ namespace System.Reflection
 
             return parameterTypes;
         }
-
+#if !MONO
         [System.Security.SecuritySafeCritical]
         internal Object[] CheckArguments(Object[] parameters, Binder binder, 
             BindingFlags invokeAttr, CultureInfo culture, Signature sig)
@@ -360,6 +378,7 @@ namespace System.Reflection
 
             return copyOfParameters;
         }
+#endif
         #endregion
 
         #region _MethodBase Implementation

@@ -2,8 +2,8 @@
 // <copyright file="SqlUtil.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.SqlClient {
@@ -29,6 +29,7 @@ namespace System.Data.SqlClient {
     using System.Runtime.ExceptionServices;
 
     static internal class AsyncHelper {
+#if !MONO
         internal static Task CreateContinuationTask(Task task, Action onSuccess, SqlInternalConnectionTds connectionToDoom = null, Action<Exception> onFailure = null) {
             if (task == null) {
                 onSuccess();
@@ -147,7 +148,7 @@ namespace System.Data.SqlClient {
                 }, TaskScheduler.Default
             );
         }
-
+#endif
 
         internal static void WaitForCompletion(Task task, int timeout, Action onTimeout = null, bool rethrowExceptions=true) {
             try {
@@ -189,6 +190,7 @@ namespace System.Data.SqlClient {
         [ResourceExposure(ResourceScope.None)]
         [ResourceConsumption(ResourceScope.Process, ResourceScope.Process)]
         private InOutOfProcHelper() {
+#if !MONO
             // Don't need to close this handle...
             // SxS: we use this method to check if we are running inside the SQL Server process. This call should be safe in SxS environment.
             IntPtr handle = SafeNativeMethods.GetModuleHandle(null);
@@ -203,6 +205,7 @@ namespace System.Data.SqlClient {
                     _inProc = true;
                 }
             }
+#endif
         }
 
         internal static bool InProc {
@@ -730,9 +733,11 @@ namespace System.Data.SqlClient {
         static internal Exception BulkLoadMappingsNamesOrOrdinalsOnly() {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_BulkLoadMappingsNamesOrOrdinalsOnly));
         }
+#if !MONO
         static internal Exception BulkLoadCannotConvertValue(Type sourcetype, MetaType metatype, Exception e) {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_BulkLoadCannotConvertValue, sourcetype.Name, metatype.TypeName), e);
         }
+#endif
         static internal Exception BulkLoadNonMatchingColumnMapping() {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_BulkLoadNonMatchingColumnMapping));
         }
@@ -835,13 +840,112 @@ namespace System.Data.SqlClient {
             }
         }
 
+        static internal Exception NullCspKeyPath(bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.ArgumentNull(TdsEnums.TCE_PARAM_MASTERKEY_PATH, Res.GetString(Res.TCE_NullCspPathSysErr, @"/"));
+            }
+            else {
+                return ADP.ArgumentNull(TdsEnums.TCE_PARAM_MASTERKEY_PATH, Res.GetString(Res.TCE_NullCspPath, @"/"));
+            }
+        }
+
+        static internal Exception NullCngKeyPath(bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.ArgumentNull(TdsEnums.TCE_PARAM_MASTERKEY_PATH, Res.GetString(Res.TCE_NullCngPathSysErr, @"/"));
+            }
+            else {
+                return ADP.ArgumentNull(TdsEnums.TCE_PARAM_MASTERKEY_PATH, Res.GetString(Res.TCE_NullCngPath, @"/"));
+            }
+        }
+
         static internal Exception InvalidCertificatePath(string actualCertificatePath, string[] validLocations, bool isSystemOp) {
             Debug.Assert(2 == validLocations.Length);
             if (isSystemOp) {
                 return ADP.Argument(Res.GetString(Res.TCE_InvalidCertificatePathSysErr, actualCertificatePath, validLocations[0], validLocations[1], @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
-                }
+            }
             else {
                 return ADP.Argument(Res.GetString(Res.TCE_InvalidCertificatePath, actualCertificatePath, validLocations[0], validLocations[1], @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception InvalidCspPath(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspPathSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspPath, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception InvalidCngPath(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCngPathSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCngPath, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception EmptyCspName(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCspNameSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCspName, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception EmptyCngName(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCngNameSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCngName, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception EmptyCspKeyId(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCspKeyIdSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCspKeyId, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception EmptyCngKeyId(string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCngKeyIdSysErr, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_EmptyCngKeyId, masterKeyPath, @"/"), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception InvalidCspName(string cspName, string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspNameSysErr, cspName, masterKeyPath), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspName, cspName, masterKeyPath), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception InvalidCspKeyIdentifier(string keyIdentifier, string masterKeyPath, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspKeyIdSysErr, keyIdentifier, masterKeyPath), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCspKeyId, keyIdentifier, masterKeyPath), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+        }
+
+        static internal Exception InvalidCngKey(string masterKeyPath, string cngProviderName, string keyIdentifier, bool isSystemOp) {
+            if (isSystemOp) {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCngKeySysErr, masterKeyPath, cngProviderName, keyIdentifier), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
+            }
+            else {
+                return ADP.Argument(Res.GetString(Res.TCE_InvalidCngKey, masterKeyPath, cngProviderName, keyIdentifier), TdsEnums.TCE_PARAM_MASTERKEY_PATH);
             }
         }
 
@@ -890,12 +994,32 @@ namespace System.Data.SqlClient {
             return ADP.Argument(Res.GetString(Res.TCE_InvalidCiphertextLengthInEncryptedCEK, actual, expected, certificateName), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
         }
 
+        static internal Exception InvalidCiphertextLengthInEncryptedCEKCsp(int actual, int expected, string masterKeyPath) {
+            return ADP.Argument(Res.GetString(Res.TCE_InvalidCiphertextLengthInEncryptedCEKCsp, actual, expected, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
+        }
+
+        static internal Exception InvalidCiphertextLengthInEncryptedCEKCng(int actual, int expected, string masterKeyPath) {
+            return ADP.Argument(Res.GetString(Res.TCE_InvalidCiphertextLengthInEncryptedCEKCng, actual, expected, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
+        }
+
         static internal Exception InvalidSignatureInEncryptedCEK(int actual, int expected, string masterKeyPath) {
             return ADP.Argument(Res.GetString(Res.TCE_InvalidSignatureInEncryptedCEK, actual, expected, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
         }
 
+        static internal Exception InvalidSignatureInEncryptedCEKCsp(int actual, int expected, string masterKeyPath) {
+            return ADP.Argument(Res.GetString(Res.TCE_InvalidSignatureInEncryptedCEKCsp, actual, expected, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
+        }
+
+        static internal Exception InvalidSignatureInEncryptedCEKCng(int actual, int expected, string masterKeyPath) {
+            return ADP.Argument(Res.GetString(Res.TCE_InvalidSignatureInEncryptedCEKCng, actual, expected, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
+        }
+
         static internal Exception InvalidCertificateSignature(string certificatePath) {
             return ADP.Argument(Res.GetString(Res.TCE_InvalidCertificateSignature, certificatePath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
+        }
+
+        static internal Exception InvalidSignature(string masterKeyPath) {
+            return ADP.Argument(Res.GetString(Res.TCE_InvalidSignature, masterKeyPath), TdsEnums.TCE_PARAM_ENCRYPTED_CEK);
         }
 
         static internal Exception CertificateWithNoPrivateKey(string keyPath, bool isSystemOp) {
@@ -1046,7 +1170,7 @@ namespace System.Data.SqlClient {
         static internal Exception InvalidDataTypeForEncryptedParameter(string parameterName, int actualDataType, int expectedDataType) {
             return ADP.Argument(Res.GetString(Res.TCE_NullProviderValue, parameterName, actualDataType, expectedDataType));
         }
-
+#if !MONO
         static internal Exception KeyDecryptionFailed (string providerName, string keyHex, Exception e) {
             if (providerName.Equals(SqlColumnEncryptionCertificateStoreProvider.ProviderName)) {
                 return GetExceptionArray(null, Res.GetString(Res.TCE_KeyDecryptionFailedCertStore, providerName, keyHex), e);
@@ -1055,7 +1179,7 @@ namespace System.Data.SqlClient {
                 return GetExceptionArray(null, Res.GetString(Res.TCE_KeyDecryptionFailed, providerName, keyHex), e);
             }
         }
-
+#endif
         static internal Exception UntrustedKeyPath(string keyPath, string serverName) {
             return ADP.Argument(Res.GetString(Res.TCE_UntrustedKeyPath, keyPath, serverName));
         }
@@ -1109,6 +1233,17 @@ namespace System.Data.SqlClient {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_OpenResultCountExceeded));
         }
 
+        //
+        // Global Transactions.
+        //
+        static internal Exception GlobalTransactionsNotEnabled() {
+            return ADP.InvalidOperation(Res.GetString(Res.GT_Disabled));
+        }
+
+        static internal Exception UnsupportedSysTxForGlobalTransactions() {
+            return ADP.InvalidOperation(Res.GetString(Res.GT_UnsupportedSysTxVersion));
+        }
+
         static internal readonly byte[] AttentionHeader = new byte[] {
             TdsEnums.MT_ATTN,               // Message Type
             TdsEnums.ST_EOM,                // Status
@@ -1143,7 +1278,7 @@ namespace System.Data.SqlClient {
                 return ADP.Argument(msg);
             }
         }
-
+#if !MONO
         static internal Exception MultiSubnetFailoverWithMoreThan64IPs() {
             string msg = GetSNIErrorMessage((int)SNINativeMethodWrapper.SniSpecialErrors.MultiSubnetFailoverWithMoreThan64IPs);
             return ADP.InvalidOperation(msg);
@@ -1158,7 +1293,7 @@ namespace System.Data.SqlClient {
             string msg = GetSNIErrorMessage((int)SNINativeMethodWrapper.SniSpecialErrors.MultiSubnetFailoverWithNonTcpProtocol);
             return ADP.Argument(msg);
         }
-
+#endif
         //
         // Read-only routing
         //
@@ -1303,10 +1438,12 @@ namespace System.Data.SqlClient {
         static internal Exception NotificationsNotAvailableOnContextConnection() {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_NotificationsNotAvailableOnContextConnection));
         }
+#if !MONO
         static internal Exception UnexpectedSmiEvent(Microsoft.SqlServer.Server.SmiEventSink_Default.UnexpectedEventType eventType) {
             Debug.Assert(false, "UnexpectedSmiEvent: "+eventType.ToString());    // Assert here, because these exceptions will most likely be eaten by the server.
             return ADP.InvalidOperation(Res.GetString(Res.SQL_UnexpectedSmiEvent, (int)eventType));
         }
+#endif
         static internal Exception UserInstanceNotAvailableInProc() {
             return ADP.InvalidOperation(Res.GetString(Res.SQL_UserInstanceNotAvailableInProc));
         }
@@ -1344,7 +1481,7 @@ namespace System.Data.SqlClient {
         static internal Exception SubclassMustOverride() {
             return ADP.InvalidOperation(Res.GetString(Res.SqlMisc_SubclassMustOverride));
         }
-
+#if !MONO
         /// <summary>
         /// gets a message for SNI error (sniError must be valid, non-zero error code)
         /// </summary>
@@ -1354,7 +1491,7 @@ namespace System.Data.SqlClient {
             string errorMessageId = String.Format((IFormatProvider)null, "SNI_ERROR_{0}", sniError);
             return Res.GetString(errorMessageId);
         }
-
+#endif
         // BulkLoad
         internal const string WriteToServer = "WriteToServer";
 
@@ -1520,5 +1657,51 @@ namespace System.Data.SqlClient {
                 return "'" + EscapeStringAsLiteral(input) + "'";
             }
         }
+    }
+
+    /// <summary>
+    /// This class holds methods invoked on System.Transactions through reflection for Global Transactions
+    /// </summary>
+    static internal class SysTxForGlobalTransactions {
+        
+        private static readonly Lazy<MethodInfo> _enlistPromotableSinglePhase = new Lazy<MethodInfo>(() => 
+            typeof(SysTx.Transaction).GetMethod("EnlistPromotableSinglePhase", new Type[] {typeof(SysTx.IPromotableSinglePhaseNotification), typeof(Guid)}));
+
+        private static readonly Lazy<MethodInfo> _setDistributedTransactionIdentifier = new Lazy<MethodInfo>(() => 
+            typeof(SysTx.Transaction).GetMethod("SetDistributedTransactionIdentifier", new Type[] { typeof(SysTx.IPromotableSinglePhaseNotification), typeof(Guid) }));
+
+        private static readonly Lazy<MethodInfo> _getPromotedToken = new Lazy<MethodInfo>(() => 
+            typeof(SysTx.Transaction).GetMethod("GetPromotedToken"));
+
+        /// <summary>
+        /// Enlists the given IPromotableSinglePhaseNotification and Non-MSDTC Promoter type into a transaction
+        /// </summary>
+        /// <returns>The MethodInfo instance to be invoked. Null if the method doesn't exist</returns>
+        public static MethodInfo EnlistPromotableSinglePhase {
+            get {
+                return _enlistPromotableSinglePhase.Value;
+            }
+        }
+
+        /// <summary>
+        /// Sets the given DistributedTransactionIdentifier for a Transaction instance.
+        /// Needs to be invoked when using a Non-MSDTC Promoter type
+        /// </summary>
+        /// <returns>The MethodInfo instance to be invoked. Null if the method doesn't exist</returns>
+        public static MethodInfo SetDistributedTransactionIdentifier {
+            get {
+                return _setDistributedTransactionIdentifier.Value;
+            }
+        }
+
+        /// <summary>
+        /// Gets the Promoted Token for a Transaction
+        /// </summary>
+        /// <returns>The MethodInfo instance to be invoked. Null if the method doesn't exist</returns>
+        public static MethodInfo GetPromotedToken {
+            get {
+                return _getPromotedToken.Value;
+            }
+        }   
     }
 }//namespace

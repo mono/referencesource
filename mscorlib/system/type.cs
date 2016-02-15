@@ -6,7 +6,7 @@
 //
 // File: Type.cs
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 //
 // Implements System.Type
 //
@@ -38,7 +38,7 @@ namespace System {
 #if CONTRACTS_FULL
     [ContractClass(typeof(TypeContracts))]
 #endif
-    public abstract class Type : MemberInfo, _Type, IReflect
+    public abstract partial class Type : MemberInfo, _Type, IReflect
     {
         //
         // System.Type is appdomain agile type. Appdomain agile types cannot have precise static constructors. Make
@@ -87,6 +87,7 @@ namespace System {
         // case-sensitive by default).
         ////  
 
+#if !MONO
         [MethodImplAttribute(MethodImplOptions.NoInlining)] // Methods containing StackCrawlMark local var has to be marked non-inlineable
         public static Type GetType(String typeName, bool throwOnError, bool ignoreCase) {
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
@@ -96,6 +97,7 @@ namespace System {
         [MethodImplAttribute(MethodImplOptions.NoInlining)] // Methods containing StackCrawlMark local var has to be marked non-inlineable
         public static Type GetType(String typeName, bool throwOnError) {
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
+
             return RuntimeType.GetType(typeName, throwOnError, false, false, ref stackMark);
         }
 
@@ -104,7 +106,7 @@ namespace System {
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return RuntimeType.GetType(typeName, false, false, false, ref stackMark);
         }
-
+#endif
 #if !FEATURE_CORECLR
         [MethodImplAttribute(MethodImplOptions.NoInlining)] // Methods containing StackCrawlMark local var has to be marked non-inlineable
         public static Type GetType(
@@ -139,21 +141,21 @@ namespace System {
             return TypeNameParser.GetType(typeName, assemblyResolver, typeResolver, throwOnError, ignoreCase, ref stackMark);
         }
 #endif //!FEATURE_CORECLR
-
+#if !MONO
         [MethodImplAttribute(MethodImplOptions.NoInlining)] // Methods containing StackCrawlMark local var has to be marked non-inlineable
         public static Type ReflectionOnlyGetType(String typeName, bool throwIfNotFound, bool ignoreCase) 
         {
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
             return RuntimeType.GetType(typeName, throwIfNotFound, ignoreCase, true /*reflectionOnly*/, ref stackMark);
         }
-
+#endif
         public virtual Type MakePointerType() { throw new NotSupportedException(); }
         public virtual StructLayoutAttribute StructLayoutAttribute { get { throw new NotSupportedException(); } }
         public virtual Type MakeByRefType() { throw new NotSupportedException(); }
         public virtual Type MakeArrayType() { throw new NotSupportedException(); }
         public virtual Type MakeArrayType(int rank) { throw new NotSupportedException(); }
 
-#if FEATURE_COMINTEROP
+#if FEATURE_COMINTEROP || MONO_COM || MOBILE_LEGACY
         ////////////////////////////////////////////////////////////////////////////////
         // This will return a class based upon the progID.  This is provided for 
         // COM classic support.  Program ID's are not used in COM+ because they 
@@ -313,11 +315,18 @@ namespace System {
             return InvokeMember(name,invokeAttr,binder,target,args,null,null,null);
         }
 
-
+#if MONO
+        // Workaround for JIT bug with bad VTable lookup
+        //
+        //      MemberInfo mi = typeof (System.DBNull);
+        //      System.Console.WriteLine (mi.Module);
+        //
+        public override abstract Module Module { get; }
+#else
         // Module Property associated with a class.
         // _Type.Module
         public new abstract Module Module { get; }
-
+#endif
         // Assembly Property associated with a class.
         public abstract Assembly Assembly {
             [Pure]
@@ -349,7 +358,7 @@ namespace System {
 
             return new RuntimeTypeHandle((RuntimeType)o.GetType());
         }
-
+#if !MONO
         // Given a class handle, this will return the class for that handle.
         [System.Security.SecurityCritical]
         [ResourceExposure(ResourceScope.None)]
@@ -361,7 +370,7 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern Type GetTypeFromHandle(RuntimeTypeHandle handle);
-
+#endif
 
         // Return the fully qualified name.  The name does contain the namespace.
         public abstract String FullName {
@@ -971,10 +980,13 @@ namespace System {
             [Pure]
             get 
             {
+#if !MONO
+                // .NET has unmanaged version of exactly same managed
+                // code bellow
                 RuntimeType rt = this as RuntimeType;
                 if (rt != null)
                     return RuntimeTypeHandle.IsVisible(rt);
-
+#endif
                 if (IsGenericParameter)
                     return true;
 
@@ -1237,7 +1249,7 @@ namespace System {
             get {return IsCOMObjectImpl();}
         }
 
-#if FEATURE_COMINTEROP
+#if FEATURE_COMINTEROP || MONO_COM
         internal bool IsWindowsRuntimeObject {
             [Pure]
             get { return IsWindowsRuntimeObjectImpl(); }
@@ -1301,7 +1313,7 @@ namespace System {
         // Protected routine to determine if this class represents a COM object
         abstract protected bool IsCOMObjectImpl();
 
-#if FEATURE_COMINTEROP
+#if FEATURE_COMINTEROP || MONO_COM
         // Protected routine to determine if this class represents a Windows Runtime object
         virtual internal bool IsWindowsRuntimeObjectImpl() {
             throw new NotImplementedException();
@@ -1800,6 +1812,17 @@ namespace System {
             return (Object.ReferenceEquals(this.UnderlyingSystemType, o.UnderlyingSystemType));
         }
 
+#if MONO
+        public static bool operator == (Type left, Type right)
+        {
+            return object.ReferenceEquals (left, right);
+        }
+
+        public static bool operator != (Type left, Type right)
+        {
+            return !object.ReferenceEquals (left, right);
+        }
+#else
 #if !FEATURE_CORECLR
         [System.Security.SecuritySafeCritical]
         [Pure]
@@ -1813,6 +1836,7 @@ namespace System {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public static extern bool operator !=(Type left, Type right);
 #endif // !FEATURE_CORECLR
+#endif
 
         public override int GetHashCode()
         {

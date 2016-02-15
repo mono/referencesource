@@ -6,7 +6,7 @@
 //
 // File: RtType.cs
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 //
 // Implements System.RuntimeType
 //
@@ -34,13 +34,21 @@ using System.Runtime.Remoting.Messaging;
 using System.Runtime.Remoting.Activation;
 using System.Runtime.Remoting.Metadata;
 #endif
+#if !MONO
 using MdSigCallingConvention = System.Signature.MdSigCallingConvention;
 using RuntimeTypeCache = System.RuntimeType.RuntimeTypeCache;
+#endif
 using System.Runtime.InteropServices;
 using DebuggerStepThroughAttribute = System.Diagnostics.DebuggerStepThroughAttribute;
+#if !MONO
 using MdToken = System.Reflection.MetadataToken;
+#endif
 using System.Runtime.Versioning;
 using System.Diagnostics.Contracts;
+
+#if MONO
+using CustomAttribute=System.MonoCustomAttrs;
+#endif
 
 namespace System 
 {
@@ -50,7 +58,7 @@ namespace System
 
     internal delegate void CtorDelegate(Object instance);
 
-    // Keep this in sync with FormatFlags defined in typestring.h
+    // Keep this in [....] with FormatFlags defined in typestring.h
     internal enum TypeNameFormatFlags
     {
         FormatBasic         = 0x00000000, // Not a bitmask, simply the tersest flag settings possible
@@ -83,7 +91,7 @@ namespace System
     }
 
     [Serializable]
-    internal class RuntimeType : 
+    internal partial class RuntimeType : 
         System.Reflection.TypeInfo, ISerializable, ICloneable
     {
         #region Definitions
@@ -194,7 +202,7 @@ namespace System
                 _count++;
             }
         }
-
+#if !MONO
         internal class RuntimeTypeCache
         {
             private const int MAXNAMELEN = 1024;
@@ -589,8 +597,8 @@ namespace System
                                     // Grow the list by exactly one element in this case to avoid null entries at the end.
                                     //
 
-                                    // DevDiv #339308 is fixed, but we are keeping this code here for Dev11 in case there are other instances of this 
-
+                                    // DevDiv #339308 is fixed, but we are keeping this code here for Dev11 in case there are other instances of this bug.
+                                    // Remove for Dev12.
 
                                     Contract.Assert(false);
 
@@ -1928,9 +1936,10 @@ namespace System
 
             #endregion
         }
+#endif
         #endregion
 
-#if FEATURE_REMOTING
+#if FEATURE_REMOTING && !MONO
         #region Legacy Remoting Cache
         // The size of CachedData is accounted for by BaseObjectWithCachedData in object.h.
         // This member is currently being used by Remoting for caching remoting data. If you
@@ -1963,6 +1972,7 @@ namespace System
         #region Static Members
 
         #region Internal
+#if !MONO
         internal static RuntimeType GetType(String typeName, bool throwOnError, bool ignoreCase, bool reflectionOnly,
             ref StackCrawlMark stackMark)
         {
@@ -2196,7 +2206,7 @@ namespace System
             Contract.Assume(false, "Unreachable code");
             throw new SystemException();
         }
-
+#endif
         private static void ThrowIfTypeNeverValidGenericArgument(RuntimeType type)
         {
             if (type.IsPointer || type.IsByRef || type == typeof(void))
@@ -2223,7 +2233,7 @@ namespace System
                 throw new ArgumentException(
                     Environment.GetResourceString("Argument_NotEnoughGenArguments", genericArguments.Length, genericParamters.Length));
         }
-        
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         internal static void ValidateGenericArguments(MemberInfo definition, RuntimeType[] genericArguments, Exception e)
         {
@@ -2264,7 +2274,7 @@ namespace System
                 }
             }
         }
-
+#endif
         private static void SplitName(string fullname, out string name, out string ns)
         {
             name = null;
@@ -2518,12 +2528,12 @@ namespace System
             Contract.Requires(methodBase != null);
 
             bindingFlags ^= BindingFlags.DeclaredOnly;
-
+#if !MONO
             #region Apply Base Filter
             if ((bindingFlags & methodFlags) != methodFlags)
                 return false;
             #endregion
-
+#endif
             #region Check CallingConvention
             if ((callConv & CallingConventions.Any) == 0)
             {
@@ -2646,10 +2656,11 @@ namespace System
         #endregion
 
         #region Private Data Members
+#if !MONO
         private object m_keepalive; // This will be filled with a LoaderAllocator reference when this RuntimeType represents a collectible type
         private IntPtr m_cache;
         internal IntPtr m_handle;
-
+#endif
 #if FEATURE_APPX
         private INVOCATION_FLAGS m_invocationFlags;
 
@@ -2724,6 +2735,7 @@ namespace System
         #endregion
 
         #region Private\Internal Members
+#if !MONO
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         internal override bool CacheEquals(object o)
         {
@@ -2765,7 +2777,7 @@ namespace System
                 return cache;
             }
         }
-
+#endif
         internal bool IsSpecialSerializableType()
         {
             RuntimeType rt = this;
@@ -2783,7 +2795,7 @@ namespace System
 
             return false;
         }
-
+#if !MONO
         private string GetDefaultMemberName()
         {
             return Cache.GetDefaultMemberName();
@@ -2794,6 +2806,7 @@ namespace System
         {
             return Cache.GetSerializationCtor();
         }
+#endif
 #endif
         #endregion
 
@@ -2808,8 +2821,11 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            RuntimeMethodInfo[] cache = GetMethodsByName (name, bindingAttr, ignoreCase, this);
+#else
             RuntimeMethodInfo[] cache = Cache.GetMethodList(listType, name);
-
+#endif
             ListBuilder<MethodInfo> candidates = new ListBuilder<MethodInfo>(cache.Length);
             for (int i = 0; i < cache.Length; i++)
             {
@@ -2832,8 +2848,13 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            if (name != null && name != ConstructorInfo.ConstructorName && name != ConstructorInfo.TypeConstructorName)
+                return new ListBuilder<ConstructorInfo> (0);
+            RuntimeConstructorInfo[] cache = GetConstructors_internal (bindingAttr, this);
+#else
             RuntimeConstructorInfo[] cache = Cache.GetConstructorList(listType, name);
-
+#endif
             ListBuilder<ConstructorInfo> candidates = new ListBuilder<ConstructorInfo>(cache.Length);
             for (int i = 0; i < cache.Length; i++)
             {
@@ -2856,6 +2877,9 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            RuntimePropertyInfo[] cache = GetPropertiesByName (name, bindingAttr, ignoreCase, this);
+#else
 #if FEATURE_LEGACYNETCF
             // Dev11 466969 quirk
             IReadOnlyList<RuntimePropertyInfo> ambiguousProperties = null;
@@ -2863,7 +2887,7 @@ namespace System
 #else
             RuntimePropertyInfo[] cache = Cache.GetPropertyList(listType, name);
 #endif
-
+#endif
             bindingAttr ^= BindingFlags.DeclaredOnly;
 
             ListBuilder<PropertyInfo> candidates = new ListBuilder<PropertyInfo>(cache.Length);
@@ -2971,8 +2995,11 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            RuntimeEventInfo[] cache = GetEvents_internal (name, bindingAttr, this);
+#else
             RuntimeEventInfo[] cache = Cache.GetEventList(listType, name);
-
+#endif
             bindingAttr ^= BindingFlags.DeclaredOnly;
 
             ListBuilder<EventInfo> candidates = new ListBuilder<EventInfo>(cache.Length);
@@ -2995,8 +3022,11 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            RuntimeFieldInfo[] cache = GetFields_internal (name, bindingAttr, this);
+#else
             RuntimeFieldInfo[] cache = Cache.GetFieldList(listType, name);
-
+#endif
             bindingAttr ^= BindingFlags.DeclaredOnly;
 
             ListBuilder<FieldInfo> candidates = new ListBuilder<FieldInfo>(cache.Length);
@@ -3022,8 +3052,11 @@ namespace System
             SplitName(fullname, out name, out ns);            
             RuntimeType.FilterHelper(bindingAttr, ref name, allowPrefixLookup, out prefixLookup, out ignoreCase, out listType);
 
+#if MONO
+            RuntimeType[] cache = GetNestedTypes_internal (name, bindingAttr);
+#else
             RuntimeType[] cache = Cache.GetNestedTypeList(listType, name);
-
+#endif
             ListBuilder<Type> candidates = new ListBuilder<Type>(cache.Length);
             for (int i = 0; i < cache.Length; i++)
             {
@@ -3036,6 +3069,7 @@ namespace System
 
             return candidates;
         }
+
         #endregion
 
         #region Get All XXXInfos
@@ -3064,7 +3098,7 @@ namespace System
         {
             return GetFieldCandidates(null, bindingAttr, false).ToArray();
         }
-
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         public override Type[] GetInterfaces()
         {
@@ -3075,7 +3109,7 @@ namespace System
 
               return interfaces;
         }
-
+#endif
         public override Type[] GetNestedTypes(BindingFlags bindingAttr)
         {
             return GetNestedTypeCandidates(null, bindingAttr, false).ToArray();
@@ -3110,7 +3144,7 @@ namespace System
 
             return members;
         }
-
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         public override InterfaceMapping GetInterfaceMap(Type ifaceType)
         {
@@ -3170,6 +3204,7 @@ namespace System
 
             return im;
         }
+#endif
         #endregion
 
         #region Find XXXInfo
@@ -3178,7 +3213,6 @@ namespace System
             Type[] types, ParameterModifier[] modifiers) 
         {       
             ListBuilder<MethodInfo> candidates = GetMethodCandidates(name, bindingAttr, callConv, types, false);
-
             if (candidates.Count == 0) 
                 return null;
 
@@ -3283,7 +3317,6 @@ namespace System
             return binder.SelectProperty(bindingAttr, candidates.ToArray(), returnType, types, modifiers);
         }
 
-
         public override EventInfo GetEvent(String name, BindingFlags bindingAttr) 
         {
             if (name == null) throw new ArgumentNullException();
@@ -3292,8 +3325,12 @@ namespace System
             bool ignoreCase;
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
-            
+
+#if MONO
+            RuntimeEventInfo[] cache = GetEvents_internal (name, bindingAttr, this);
+#else
             RuntimeEventInfo[] cache = Cache.GetEventList(listType, name);
+#endif
             EventInfo match = null;
 
             bindingAttr ^= BindingFlags.DeclaredOnly;
@@ -3322,7 +3359,11 @@ namespace System
             MemberListType listType;
             RuntimeType.FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
 
+#if MONO
+            RuntimeFieldInfo[] cache = GetFields_internal (name, bindingAttr, this); 
+#else
             RuntimeFieldInfo[] cache = Cache.GetFieldList(listType, name);
+#endif
             FieldInfo match = null;
 
             bindingAttr ^= BindingFlags.DeclaredOnly;
@@ -3370,8 +3411,25 @@ namespace System
             SplitName(fullname, out name, out ns);            
             RuntimeType.FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
 
-            RuntimeType[] cache = Cache.GetInterfaceList(listType, name);            
+#if MONO
+            List<RuntimeType> list = null;
+            foreach (RuntimeType t in GetInterfaces ()) {
+                if (t.Name != name)
+                    continue;
 
+                if (list == null)
+                    list = new List<RuntimeType> (2);
+
+                list.Add (t);
+            }
+
+            if (list == null)
+                return null;
+
+            var cache = list.ToArray ();
+#else
+            RuntimeType[] cache = Cache.GetInterfaceList(listType, name);
+#endif
             RuntimeType match = null;
 
             for (int i = 0; i < cache.Length; i++)
@@ -3400,9 +3458,11 @@ namespace System
             MemberListType listType;
             SplitName(fullname, out name, out ns);            
             RuntimeType.FilterHelper(bindingAttr, ref name, out ignoreCase, out listType);
-
+#if MONO
+            RuntimeType[] cache = GetNestedTypes_internal (name, bindingAttr);
+#else
             RuntimeType[] cache = Cache.GetNestedTypeList(listType, name);
-
+#endif
             RuntimeType match = null;
 
             for (int i = 0; i < cache.Length; i++)
@@ -3505,6 +3565,7 @@ namespace System
         #endregion
 
         #region Identity
+
         public override Module Module
         {
             get
@@ -3544,7 +3605,7 @@ namespace System
         {
             return new RuntimeTypeHandle(this);
         }
-
+#if !MONO
         [System.Security.SecuritySafeCritical]
         internal bool IsCollectible()
         {
@@ -3629,6 +3690,7 @@ namespace System
                 return GetMethodBase(RuntimeMethodHandle.GetDeclaringType(declaringMethod), declaringMethod);
             }
         }
+#endif
         #endregion
 
         #region Hierarchy
@@ -3689,7 +3751,7 @@ namespace System
                 // both this and c (or their underlying system types) are runtime types
                 return RuntimeTypeHandle.CanCastTo(fromType, this);
             }
-
+#if !FULL_AOT_RUNTIME
             // Special case for TypeBuilder to be backward-compatible.
             if (c is System.Reflection.Emit.TypeBuilder)
             {
@@ -3711,7 +3773,7 @@ namespace System
                     return true;
                 }
             }
-
+#endif
             // For anything else we return false.
             return false;
         }
@@ -3794,7 +3856,7 @@ namespace System
             }
         }
         #endregion
-
+#if !MONO
         #region Name
         public override String FullName 
         {
@@ -3831,14 +3893,14 @@ namespace System
             }
         }
         #endregion
-
+#endif
         #region Attributes
         [System.Security.SecuritySafeCritical]  // auto-generated
         protected override TypeAttributes GetAttributeFlagsImpl() 
         {
             return RuntimeTypeHandle.GetAttributes(this);
         }
-
+#if !MONO
         public override Guid GUID 
         {
             [System.Security.SecuritySafeCritical]  // auto-generated
@@ -3854,7 +3916,7 @@ namespace System
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void GetGUID(ref Guid result);
-
+#endif
         [System.Security.SecuritySafeCritical]  // auto-generated
         protected override bool IsContextfulImpl() 
         {
@@ -3958,14 +4020,18 @@ namespace System
                     throw new InvalidOperationException(Environment.GetResourceString("Arg_NotGenericParameter"));
                 Contract.EndContractBlock();
 
+#if MONO
+                return GetGenericParameterAttributes ();
+#else
                 GenericParameterAttributes attributes;
 
                 RuntimeTypeHandle.GetMetadataImport(this).GetGenericParamProps(MetadataToken, out attributes);
 
                 return attributes;
+#endif
             }
         }
-
+#if !MONO
         public override bool IsSecurityCritical 
         {
             get { return new RuntimeTypeHandle(this).IsSecurityCritical(); } 
@@ -3978,6 +4044,7 @@ namespace System
         {
             get { return new RuntimeTypeHandle(this).IsSecurityTransparent(); }
         }
+#endif
         #endregion
 
         #region Arrays
@@ -4136,14 +4203,23 @@ namespace System
         #endregion
 
         #region Generics
+
         internal RuntimeType[] GetGenericArgumentsInternal()
         {
+#if MONO
+            return (RuntimeType[]) GetGenericArgumentsInternal (true);
+#else
             return GetRootElementType().GetTypeHandleInternal().GetInstantiationInternal();
+#endif
         }
 
         public override Type[] GetGenericArguments() 
         {
+#if MONO
+            Type[] types = GetGenericArgumentsInternal (false);
+#else
             Type[] types = GetRootElementType().GetTypeHandleInternal().GetInstantiationPublic();
+#endif
 
             if (types == null)
                 types = EmptyArray<Type>.Value;
@@ -4192,6 +4268,11 @@ namespace System
             SanityCheckGenericArguments(instantiationRuntimeType, genericParameters);
 
             Type ret = null;
+#if MONO
+            ret = MakeGenericType (this, instantiationRuntimeType);
+            if (ret == null)
+                throw new TypeLoadException ();
+#else
             try 
             {
                 ret = new RuntimeTypeHandle(this).Instantiate(instantiationRuntimeType);
@@ -4201,7 +4282,7 @@ namespace System
                 ValidateGenericArguments(this, instantiationRuntimeType, e);
                 throw e;
             }
-
+#endif
             return ret;
         }
 
@@ -4222,8 +4303,11 @@ namespace System
                 if (!IsGenericParameter)
                     throw new InvalidOperationException(Environment.GetResourceString("Arg_NotGenericParameter"));
                 Contract.EndContractBlock();
-            
+#if MONO
+                return GetGenericParameterPosition ();
+#else
                 return new RuntimeTypeHandle(this).GetGenericVariableIndex(); 
+#endif
             }
         }
 
@@ -4245,7 +4329,7 @@ namespace System
         {
             get { return IsGenericType && !IsGenericTypeDefinition; }
         }
-
+#if !MONO
         public override bool ContainsGenericParameters
         {
             get { return GetRootElementType().GetTypeHandleInternal().ContainsGenericVariables(); } 
@@ -4264,8 +4348,9 @@ namespace System
 
             return constraints;
         }
+#endif
         #endregion
-
+#if !MONO
         #region Misc
         [System.Security.SecuritySafeCritical]  // auto-generated
         public override Type MakePointerType() { return new RuntimeTypeHandle(this).MakePointer(); }
@@ -4288,7 +4373,7 @@ namespace System
             } 
         }
         #endregion
-
+#endif
         #region Invoke Member
         private const BindingFlags MemberBindingMask        = (BindingFlags)0x000000FF;
         private const BindingFlags InvocationMask           = (BindingFlags)0x0000FF00;
@@ -4302,7 +4387,7 @@ namespace System
             BindingFlags.InvokeMethod | BindingFlags.GetProperty | BindingFlags.SetProperty | 
             BindingFlags.PutDispProperty | BindingFlags.PutRefDispProperty;
         private static RuntimeType s_typedRef = (RuntimeType)typeof(TypedReference);
-
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -4438,7 +4523,7 @@ namespace System
 
             throw new ArgumentException(String.Format(CultureInfo.CurrentUICulture, Environment.GetResourceString("Arg_ObjObjEx"), value.GetType(), this));
         }
-
+#endif
         // GetDefaultMembers
         // This will return a MemberInfo that has been marked with the [DefaultMemberAttribute]
         public override MemberInfo[] GetDefaultMembers()
@@ -4540,15 +4625,23 @@ namespace System
                     // pass LCID_ENGLISH_US if no explicit culture is specified to match the behavior of VB
                     int lcid = (culture == null ? 0x0409 : culture.LCID);
 
+#if MONO
+                    throw new NotImplementedException ();
+#else
                     return InvokeDispMethod(name, bindingFlags, target, providedArgs, isByRef, lcid, namedParams);
+#endif
                     #endregion
                 }
 #if FEATURE_REMOTING
                 else
                 {
+#if MONO
+                    throw new NotImplementedException ();
+#else
                     #region TransparentProxy case
                     return ((MarshalByRefObject)target).InvokeMember(name, bindingFlags, binder, providedArgs, modifiers, culture, namedParams);
                     #endregion
+#endif
                 }
 #endif // FEATURE_REMOTING
             }
@@ -4951,11 +5044,12 @@ namespace System
             return !object.ReferenceEquals(left, right);
         }
 #endif // !FEATURE_CORECLR
-
+#if !MONO
         public override String ToString() 
         {
             return GetCachedName(TypeNameKind.ToString);
         }
+#endif
         #endregion
 
         #region ICloneable
@@ -5021,6 +5115,7 @@ namespace System
         #endregion
 
         #region MemberInfo Overrides
+#if !MONO
         public override String Name 
         {
             get 
@@ -5029,6 +5124,7 @@ namespace System
             }
         }
 
+#endif
         // This is used by the ToString() overrides of all reflection types. The legacy behavior has the following problems:
         //  1. Use only Name for nested types, which can be confused with global types and generic parameters of the same name.
         //  2. Use only Name for generic parameters, which can be confused with nested types and global types of the same name.
@@ -5066,12 +5162,13 @@ namespace System
                 return typeName;
             }
         }
+#if !MONO
 
         private string GetCachedName(TypeNameKind kind)
         {
             return Cache.GetName(kind);
         }
-
+#endif
         public override MemberTypes MemberType 
         {
             get 
@@ -5082,7 +5179,7 @@ namespace System
                     return MemberTypes.NestedType;
             }
         }
-
+#if !MONO
         public override Type DeclaringType 
         {
             get 
@@ -5090,7 +5187,7 @@ namespace System
                 return Cache.GetEnclosingType();
             }
         }
-
+#endif
         public override Type ReflectedType 
         {
             get 
@@ -5229,6 +5326,7 @@ namespace System
                             throw new MissingMethodException(Environment.GetResourceString("MissingConstructor_Name", FullName));
                         }
 
+#if !DISABLE_CAS_USE
                         // If we're creating a delegate, we're about to call a
                         // constructor taking an integer to represent a target
                         // method. Since this is very difficult (and expensive)
@@ -5259,7 +5357,7 @@ namespace System
                             new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Demand();
 #endif // FEATURE_CORECLR
                         }
-
+#endif // !DISABLE_CAS_USE
                         if (invokeMethod.GetParametersNoCopy().Length == 0)
                         {
                             if (args.Length != 0)
@@ -5302,7 +5400,7 @@ namespace System
             //Console.WriteLine(server);
             return server;                                
         }
-
+#if !MONO
         // the cache entry
         class ActivatorCacheEntry
         {
@@ -5446,7 +5544,7 @@ namespace System
 
             return instance;
         }
-
+#endif
         // Helper to invoke the default (parameterless) ctor.
         // fillCache is set in the SL2/3 compat mode or when called from Marshal.PtrToStructure.
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -5456,7 +5554,7 @@ namespace System
         {
             if (GetType() == typeof(ReflectionOnlyType))
                 throw new InvalidOperationException(Environment.GetResourceString("InvalidOperation_NotAllowedInReflectionOnly"));
-
+#if !MONO
             ActivatorCache activatorCache = s_ActivatorCache;
             if (activatorCache != null)
             {
@@ -5497,9 +5595,10 @@ namespace System
                     return instance;
                 }
             }
+#endif
             return CreateInstanceSlow(publicOnly, skipCheckThis, fillCache, ref stackMark);
         }
-
+#if !MONO
         internal void InvalidateCachedNestedType()
         {
             Cache.InvalidateCachedNestedType();
@@ -5510,8 +5609,9 @@ namespace System
         {
             return RuntimeTypeHandle.IsComObject(this, true);
         }
+#endif
         #endregion
-
+#if !MONO
         #region Legacy Static Internal
         [System.Security.SecurityCritical]
         [ResourceExposure(ResourceScope.None)]
@@ -5555,9 +5655,9 @@ namespace System
 #endif
 
         #endregion
-
+#endif
         #region COM
-#if FEATURE_COMINTEROP && FEATURE_REMOTING
+#if FEATURE_COMINTEROP && FEATURE_REMOTING && !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         private Object ForwardCallToInvokeMember(String memberName, BindingFlags flags, Object target, int[] aWrapperTypes, ref MessageData msgData)
         {
@@ -5752,7 +5852,7 @@ namespace System
         [Flags]
         private enum DispatchWrapperType : int
         {
-            // This enum must stay in sync with the DispatchWrapperType enum defined in MLInfo.h
+            // This enum must stay in [....] with the DispatchWrapperType enum defined in MLInfo.h
             Unknown         = 0x00000001,
             Dispatch        = 0x00000002,
             Record          = 0x00000004,
@@ -5791,7 +5891,7 @@ namespace System
         }
 
     }
-
+#if !MONO
     #region Library
     internal unsafe struct Utf8String
     {
@@ -5915,8 +6015,9 @@ namespace System
         }
     }
     #endregion
+#endif
 }
-
+#if !MONO
 namespace System.Reflection
 {
     // Reliable hashtable thread safe for multiple readers and single writer. Note that the reliability goes together with thread
@@ -6078,3 +6179,4 @@ namespace System.Reflection
         }
     }
 }
+#endif

@@ -554,6 +554,24 @@ namespace System.ServiceModel.Diagnostics
             return retval;
         }
 
+
+        internal static ServiceModelActivity ExtractActivity(RequestContext request)
+        {
+            try
+            {
+                return TraceUtility.ExtractActivity(request.RequestMessage);
+            }
+            catch (Exception e)
+            {
+                if (Fx.IsFatal(e))
+                {
+                    throw;
+                }
+            }
+
+            return null;
+        }
+
         internal static Guid ExtractActivityId(Message message)
         {
             if (TraceUtility.MessageFlowTracingOnly)
@@ -791,7 +809,11 @@ namespace System.ServiceModel.Diagnostics
             Fx.Assert(traceCodes.ContainsKey(traceCode),
                 string.Format(CultureInfo.InvariantCulture, "Unsupported trace code: Please add trace code 0x{0} to the SortedList TraceUtility.traceCodes in {1}",
                 traceCode.ToString("X", CultureInfo.InvariantCulture), typeof(TraceUtility)));
+#if !MONO
             return LegacyDiagnosticTrace.GenerateMsdnTraceCode(terminatorUri, traceCodes[traceCode]);
+#else
+		return "";
+#endif
         }
 
         internal static Exception ThrowHelperError(Exception exception, Message message)

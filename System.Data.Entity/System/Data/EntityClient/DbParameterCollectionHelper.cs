@@ -3,8 +3,8 @@
 //      Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
 //
-// @owner  Microsoft
-// @backupOwner Microsoft
+// @owner  [....]
+// @backupOwner [....]
 //---------------------------------------------------------------------
 
 namespace System.Data.EntityClient
@@ -14,7 +14,6 @@ namespace System.Data.EntityClient
     using System.ComponentModel;
     using System.Data;
     using System.Data.Common;
-    using System.Data.ProviderBase;
     using System.Diagnostics;
     using System.Globalization;
     using System.Runtime.InteropServices;

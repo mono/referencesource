@@ -140,7 +140,7 @@ using System.Runtime.Versioning;
 #if !FEATURE_CORECLR
 [SecurityPermission(SecurityAction.InheritanceDemand, UnmanagedCode=true)]
 #endif
-public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
+public abstract partial class SafeHandle : CriticalFinalizerObject, IDisposable
 {
     // ! Do not add or rearrange fields as the EE depends on this layout.
     //------------------------------------------------------------------
@@ -170,7 +170,7 @@ public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
         if (!ownsHandle)
             GC.SuppressFinalize(this);
 
-#if DEBUG
+#if !MONO && DEBUG
         if (BCLDebug.SafeHandleStackTracesEnabled)
             _stackTrace = Environment.GetStackTrace(null, false);
         else
@@ -184,7 +184,7 @@ public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
         _fullyInitialized = true;
     }
 
-#if FEATURE_CORECLR
+#if FEATURE_CORECLR || MOBILE
     // Migrating InheritanceDemands requires this default ctor, so we can mark it critical
     protected SafeHandle()
     {
@@ -198,12 +198,12 @@ public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
     {
         Dispose(false);
     }
-
+#if !MONO
     [ResourceExposure(ResourceScope.None)]
     [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern void InternalFinalize();
-
+#endif
     [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
     protected void SetHandle(IntPtr handle) {
         this.handle = handle;
@@ -261,7 +261,7 @@ public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
         else
             InternalFinalize();
     }
-
+#if !MONO
     [ResourceExposure(ResourceScope.None)]
     [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -321,5 +321,6 @@ public abstract class SafeHandle : CriticalFinalizerObject, IDisposable
     [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     public extern void DangerousRelease();
+#endif
 }
 }

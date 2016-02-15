@@ -7,7 +7,7 @@
 //
 // ConcurrentBag.cs
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 //
 // 
 //An unordered collection that allows duplicates and that provides add and get operations.
@@ -52,7 +52,7 @@ namespace System.Collections.Concurrent
     [ComVisible(false)]
     [DebuggerTypeProxy(typeof(SystemThreadingCollection_IProducerConsumerCollectionDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
-#if !FEATURE_NETCORE
+#if !(FEATURE_NETCORE || DISABLE_CAS_USE)
     [HostProtection(Synchronization = true, ExternalThreading = true)]
 #endif
     public class ConcurrentBag<T> : IProducerConsumerCollection<T>, IReadOnlyCollection<T>

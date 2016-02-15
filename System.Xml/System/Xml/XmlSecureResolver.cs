@@ -2,7 +2,7 @@
 // <copyright file="XmlSecureResolver.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Xml {
@@ -15,15 +15,25 @@ namespace System.Xml {
     [PermissionSetAttribute(SecurityAction.InheritanceDemand, Name = "FullTrust")]
     public partial class XmlSecureResolver : XmlResolver {
         XmlResolver resolver;
+#if !DISABLE_CAS_USE
         PermissionSet permissionSet;
+#endif
 
+#if DISABLE_CAS_USE
+        public XmlSecureResolver(XmlResolver resolver, string securityUrl) : this(resolver, (PermissionSet) null) {}
+
+        public XmlSecureResolver(XmlResolver resolver, Evidence evidence) : this(resolver, (PermissionSet) null) {}
+#else
         public XmlSecureResolver(XmlResolver resolver, string securityUrl) : this(resolver, CreateEvidenceForUrl(securityUrl)) {}
 
         public XmlSecureResolver(XmlResolver resolver, Evidence evidence) : this(resolver, SecurityManager.GetStandardSandbox(evidence)) {}
+#endif
 
         public XmlSecureResolver(XmlResolver resolver, PermissionSet permissionSet) {
             this.resolver = resolver;
+#if !DISABLE_CAS_USE
             this.permissionSet = permissionSet;
+#endif
         }
 
         public override ICredentials Credentials {
@@ -31,7 +41,9 @@ namespace System.Xml {
         }
 
         public override object GetEntity(Uri absoluteUri, string role, Type ofObjectToReturn) {
+#if !DISABLE_CAS_USE
             permissionSet.PermitOnly();
+#endif
             return resolver.GetEntity(absoluteUri, role, ofObjectToReturn);
         }
 
@@ -42,6 +54,7 @@ namespace System.Xml {
         }
 
         public static Evidence CreateEvidenceForUrl(string securityUrl) {
+#if !DISABLE_CAS_USE
             Evidence evidence = new Evidence();
             if (securityUrl != null && securityUrl.Length > 0) {
                 evidence.AddHostEvidence(new Url(securityUrl));
@@ -59,9 +72,14 @@ namespace System.Xml {
                     }
                 }
             }
+
             return evidence;
+#else
+            return null;
+#endif
         }
 
+#if !DISABLE_CAS_USE
         [Serializable]
         private class UncDirectory : EvidenceBase, IIdentityPermissionFactory {
             private string uncDir;
@@ -90,5 +108,6 @@ namespace System.Xml {
                 return ToXml().ToString();
             }
         }
+#endif
     }
 }

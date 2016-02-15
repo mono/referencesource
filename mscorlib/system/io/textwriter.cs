@@ -7,7 +7,7 @@
 **
 ** Class:  TextWriter
 ** 
-** <OWNER>Microsoft</OWNER>
+** <OWNER>[....]</OWNER>
 **
 **
 ** Purpose: Abstract base class for Text-only Writers.
@@ -96,10 +96,20 @@ namespace System.IO {
         // This should be initialized to Environment.NewLine, but
         // to avoid loading Environment unnecessarily so I've duplicated
         // the value here.
+#if MONO
+        static string InitialNewLine {
+            get {
+                return Environment.NewLine;
+            }
+        }
+
+        protected char[] CoreNewLine = InitialNewLine.ToCharArray ();
+#else
         private const String InitialNewLine = "\r\n";
 
         protected char[] CoreNewLine = new char[] { '\r', '\n' };
 
+#endif
         // Can be null - if so, ask for the Thread's CurrentCulture every time.
         private IFormatProvider InternalFormatProvider;
 

@@ -2,8 +2,8 @@
 // <copyright file="DataSet.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data {
@@ -19,7 +19,9 @@ namespace System.Data {
     using System.Collections.Specialized;
     using System.Xml;
     using System.Xml.Serialization;
+#if !NO_CONFIGURATION
     using System.Xml.Serialization.Advanced;
+#endif
     using System.Xml.Schema;
     using System.Runtime.Serialization.Formatters.Binary; //Binary Formatter
     using System.CodeDom;
@@ -682,7 +684,7 @@ namespace System.Data {
                             continue;
                         if ((dt.NestedParentRelations.Length == 0) ||
                             (dt.NestedParentRelations.Length == 1 && dt.NestedParentRelations[0].ChildTable == dt)) {
-                            //                            dt.SelfNestedWithOneRelation) { // this is wrong 
+                            //                            dt.SelfNestedWithOneRelation) { // this is wrong bug it was previous behavior
                             if (Tables.Contains(dt.TableName, value, false, true))
                                 throw ExceptionBuilder.DuplicateTableName2(dt.TableName, value);
                             dt.CheckCascadingNamespaceConflict(value);
@@ -1104,7 +1106,7 @@ namespace System.Data {
             try {
                 DataSet ds = (DataSet)Activator.CreateInstance(this.GetType(), true);
 
-                if (ds.Tables.Count > 0)  // Microsoft : To clean up all the schema in strong typed dataset.
+                if (ds.Tables.Count > 0)  // [....] : To clean up all the schema in strong typed dataset.
                     ds.Reset();
 
                 //copy some original dataset properties
@@ -3062,7 +3064,7 @@ namespace System.Data {
             }
         }
 
-        // Microsoft: may be better to rewrite this as nonrecursive?
+        // [....]: may be better to rewrite this as nonrecursive?
         internal DataTable FindTable(DataTable baseTable, PropertyDescriptor[] props, int propStart) {
             if (props.Length < propStart + 1)
                 return baseTable;
@@ -3309,6 +3311,7 @@ namespace System.Data {
         private static bool PublishLegacyWSDL()
         {
             Single version = 1.0f; // Default is Version 1.0
+#if !NO_CONFIGURATION
             NameValueCollection settings = (NameValueCollection)PrivilegedConfigurationManager.GetSection(Keywords.WS_DATASETFULLQNAME);
             if (settings != null)
             {
@@ -3318,6 +3321,7 @@ namespace System.Data {
                     version = Single.Parse(values[0], CultureInfo.InvariantCulture);
                 }
             }
+#endif
             return (version < 2.0f); // if config does not exist, Default is Version 1.0
         }
 
@@ -3458,6 +3462,7 @@ namespace System.Data {
 
     }
 
+#if !NO_CODEDOM
  public class DataSetSchemaImporterExtension : SchemaImporterExtension {
         // DataSetSchemaImporterExtension is used for WebServices, it is used to recognize the schema of DataSet within wsdl
         // If a non 2.0 enabled DataSetSchemaImporterExtension, wsdl will generate a classes that you can't cast to dataset / datatable
@@ -3664,4 +3669,5 @@ namespace System.Data {
             return false;
         }
     }
+#endif
 }

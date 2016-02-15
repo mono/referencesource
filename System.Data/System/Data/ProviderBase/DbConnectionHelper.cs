@@ -2,7 +2,7 @@
 // <copyright file="DbConnectionHelper.cs" company="Microsoft">
 //      Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace NAMESPACE {
@@ -207,6 +207,7 @@ namespace NAMESPACE {
 
         partial void RepairInnerConnection();
 
+#if !MOBILE
         // NOTE: This is just a private helper because OracleClient V1.1 shipped
         // with a different argument name and it's a breaking change to not use
         // the same argument names in V2.0 (VB Named Parameter Binding--Ick)
@@ -235,6 +236,7 @@ namespace NAMESPACE {
             // we should consider a GC.KeepAlive(this) here.
             GC.KeepAlive(this);
         }
+#endif
 
         override public void EnlistTransaction(SysTx.Transaction transaction) {
             CONNECTIONOBJECTNAME.ExecutePermission.Demand();

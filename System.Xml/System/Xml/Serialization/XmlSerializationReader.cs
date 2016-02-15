@@ -2,7 +2,7 @@
 // <copyright file="XmlSerializationReader.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>                                                                
+// <owner current="true" primary="true">[....]</owner>                                                                
 //------------------------------------------------------------------------------
 
 namespace System.Xml.Serialization {
@@ -115,13 +115,13 @@ namespace System.Xml.Serialization {
         string guidID;
 
         static bool checkDeserializeAdvances;
-
+#if CONFIGURATION_DEP
         static XmlSerializationReader()
         {
             XmlSerializerSection configSection = ConfigurationManager.GetSection(ConfigurationStrings.XmlSerializerSectionPath) as XmlSerializerSection;
             checkDeserializeAdvances = (configSection == null) ? false : configSection.CheckDeserializeAdvances;
         }
-
+#endif
         /// <include file='doc\XmlSerializationReader.uex' path='docs/doc[@for="XmlSerializationReader.InitIDs"]/*' />
         protected abstract void InitIDs();
 
@@ -4185,7 +4185,7 @@ namespace System.Xml.Serialization {
                 memberMapping.TypeDesc = arrayMapping.TypeDesc;
                 memberMapping.ReadOnly = readOnly;
                 Member member = new Member(this, source, arrayName, 0, memberMapping, false);
-                member.IsNullable = false;//Note, Microsoft: IsNullable is set to false since null condition (xsi:nil) is already handled by 'ReadNull()'
+                member.IsNullable = false;//Note, [....]: IsNullable is set to false since null condition (xsi:nil) is already handled by 'ReadNull()'
 
                 Member[] members = new Member[] { member };
                 WriteMemberBegin(members);

@@ -2,8 +2,8 @@
 // <copyright file="AdapterUtil.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.Common {
@@ -16,8 +16,10 @@ namespace System.Data.Common {
     using System.Configuration;
     using System.Data;
     using System.Data.ProviderBase;
+#if !MOBILE
     using System.Data.Odbc;
     using System.Data.OleDb;
+#endif
     using System.Data.Sql;
     using System.Data.SqlTypes;
     using System.Diagnostics;
@@ -35,7 +37,9 @@ namespace System.Data.Common {
     using System.Threading.Tasks;
     using System.Xml;
     using SysTx = System.Transactions;
+#if !MOBILE
     using SysES = System.EnterpriseServices;
+#endif
     using System.Runtime.Versioning;
 
     using Microsoft.SqlServer.Server;
@@ -74,7 +78,7 @@ namespace System.Data.Common {
         }
 
         // NOTE: Initializing a Task in SQL CLR requires the "UNSAFE" permission set (http://msdn.microsoft.com/en-us/library/ms172338.aspx)
-        // Therefore we are lazily initializing these Tasks to avoid forcing customers to use the "UNSAFE" set when they are actually using no Async features (See Dev11 
+        // Therefore we are lazily initializing these Tasks to avoid forcing customers to use the "UNSAFE" set when they are actually using no Async features (See Dev11 Bug #193253)
         static private Task<bool> _trueTask = null;
         static internal Task<bool> TrueTask {
             get {
@@ -165,6 +169,7 @@ namespace System.Data.Common {
             TraceExceptionAsReturnValue(e);
             return e;
         }
+#if !MOBILE
         static internal ConfigurationException Configuration(string message) {
             ConfigurationException e = new ConfigurationErrorsException(message);
             TraceExceptionAsReturnValue(e);
@@ -175,6 +180,7 @@ namespace System.Data.Common {
             TraceExceptionAsReturnValue(e);
             return e;
         }
+#endif
         static internal DataException Data(string message) {
             DataException e = new DataException(message);
             TraceExceptionAsReturnValue(e);
@@ -724,6 +730,7 @@ namespace System.Data.Common {
         static internal InvalidOperationException ConfigProviderInvalid() {
             return InvalidOperation(Res.GetString(Res.ConfigProviderInvalid));
         }
+#if !MOBILE
         static internal ConfigurationException ConfigProviderNotInstalled() {
             return Configuration(Res.GetString(Res.ConfigProviderNotInstalled));
         }
@@ -755,7 +762,7 @@ namespace System.Data.Common {
         static internal ConfigurationException ConfigRequiredAttributeEmpty(string name, XmlNode node) { // Res.Config_base_required_attribute_empty
             return Configuration(Res.GetString(Res.ConfigRequiredAttributeEmpty, name), node);
         }
-
+#endif
         //
         // DbConnectionOptions, DataAccess
         //
@@ -871,7 +878,7 @@ namespace System.Data.Common {
                 return Res.GetString(Res.ADP_ConnectionStateMsg, state.ToString());
             }
         }
-
+#if !MOBILE
         static internal ConfigurationException ConfigUnableToLoadXmlMetaDataFile(string settingName){
             return Configuration(Res.GetString(Res.OleDb_ConfigUnableToLoadXmlMetaDataFile, settingName));
         }
@@ -879,7 +886,7 @@ namespace System.Data.Common {
         static internal ConfigurationException ConfigWrongNumberOfValues(string settingName){
             return Configuration(Res.GetString(Res.OleDb_ConfigWrongNumberOfValues, settingName));
         }
-
+#endif
         //
         // : DbConnectionOptions, DataAccess, SqlClient
         //
@@ -1845,6 +1852,7 @@ namespace System.Data.Common {
         internal const int DefaultCommandTimeout = 30;
         internal const int DefaultConnectionTimeout = DbConnectionStringDefaults.ConnectTimeout;
         internal const float FailoverTimeoutStep = 0.08F;    // fraction of timeout to use for fast failover connections
+        internal const int FirstTransparentAttemptTimeout = 500; // The first login attempt in  Transparent network IP Resolution 
 
         // security issue, don't rely upon static public readonly values - AS/URT 109635
         static internal readonly String StrEmpty = ""; // String.Empty
@@ -1898,14 +1906,19 @@ namespace System.Data.Common {
 
         [System.Runtime.CompilerServices.MethodImplAttribute(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         static internal bool IsSysTxEqualSysEsTransaction() {
+#if MOBILE
+            return false;
+#else
             // This Method won't JIT inproc (ES isn't available), so we code it
             // separately and call it behind an if statement.
             bool result = (!SysES.ContextUtil.IsInTransaction && null == SysTx.Transaction.Current)
                        || (SysES.ContextUtil.IsInTransaction  && SysTx.Transaction.Current == (SysTx.Transaction)SysES.ContextUtil.SystemTransaction);
             return result;
+#endif
         }
 
         static internal bool NeedManualEnlistment() {
+#if !MOBILE && !MONO_PARTIAL_DATA_IMPORT
             // We need to force a manual enlistment of transactions for ODBC and
             // OLEDB whenever the current SysTx transaction != the SysTx transaction
             // on the EnterpriseServices ContextUtil, or when ES.ContextUtil is
@@ -1917,6 +1930,7 @@ namespace System.Data.Common {
                     return true;
                 }
             }
+#endif
             return false;
         }
 
@@ -2074,6 +2088,9 @@ namespace System.Data.Common {
             const int ERROR_MORE_DATA = 234; // winerror.h
 
             string value;
+#if MOBILE
+            value = ADP.MachineName();
+#else
             if (IsPlatformNT5) {
                 int length = 0; // length parameter must be zero if buffer is null
                 // query for the required length
@@ -2099,6 +2116,7 @@ namespace System.Data.Common {
             else {
                 value = ADP.MachineName();
             }
+#endif
             return value;
         }
 
@@ -2107,6 +2125,7 @@ namespace System.Data.Common {
         [ResourceExposure(ResourceScope.Machine)]
         [ResourceConsumption(ResourceScope.Machine)]
         static internal Stream GetFileStream(string filename) {
+#if !DISABLE_CAS_USE
             (new FileIOPermission(FileIOPermissionAccess.Read, filename)).Assert();
             try {
                 return new FileStream(filename,FileMode.Open,FileAccess.Read,FileShare.Read);
@@ -2114,11 +2133,15 @@ namespace System.Data.Common {
             finally {
                 FileIOPermission.RevertAssert();
             }
+#else
+            return new FileStream(filename,FileMode.Open,FileAccess.Read,FileShare.Read);
+#endif
         }
 
         [ResourceExposure(ResourceScope.Machine)]
         [ResourceConsumption(ResourceScope.Machine)]
         static internal FileVersionInfo GetVersionInfo(string filename) {
+#if !DISABLE_CAS_USE
             (new FileIOPermission(FileIOPermissionAccess.Read, filename)).Assert(); // MDAC 62038
             try {
                 return FileVersionInfo.GetVersionInfo(filename); // MDAC 60411
@@ -2126,8 +2149,16 @@ namespace System.Data.Common {
             finally {
                 FileIOPermission.RevertAssert();
             }
+#else
+            return FileVersionInfo.GetVersionInfo(filename); // MDAC 60411
+#endif
         }
 
+#if MOBILE
+        static internal object LocalMachineRegistryValue(string subkey, string queryvalue) {
+            return null;
+        }
+#else
         [ResourceExposure(ResourceScope.Machine)]
         [ResourceConsumption(ResourceScope.Machine)]
         static internal Stream GetXmlStreamFromValues(String[] values, String errorString) {
@@ -2221,6 +2252,9 @@ namespace System.Data.Common {
         [ResourceExposure(ResourceScope.None)]
         [ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)]
         static internal void CheckVersionMDAC(bool ifodbcelseoledb) {
+			// we don't have that version info on the registry implementation, so it won't work.
+			if (Environment.OSVersion.Platform == PlatformID.Unix)
+				return;
             int major, minor, build;
             string version;
 
@@ -2262,7 +2296,7 @@ namespace System.Data.Common {
                 }
             }
         }
-
+#endif
         // the return value is true if the string was quoted and false if it was not
         // this allows the caller to determine if it is an error or not for the quotedString to not be quoted
         static internal Boolean RemoveStringQuotes(string quotePrefix, string quoteSuffix, string quotedString, out string unquotedString) {

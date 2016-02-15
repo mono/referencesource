@@ -29,6 +29,9 @@ namespace System.Text
         // Unicode version 2.0 character size in bytes
         public const int CharSize = 2;
 
+		// endianness-based bit pattern mask. 
+        static readonly ulong highLowPatternMask = ((ulong) 0xd800d800d800d800 | (BitConverter.IsLittleEndian ? (ulong) 0x0400000004000000 : (ulong) 0x0000040000000400));
+
 
         public UnicodeEncoding()
             : this(false, true)
@@ -81,7 +84,7 @@ namespace System.Text
         //
         // The following methods are copied from EncodingNLS.cs.
         // Unfortunately EncodingNLS.cs is internal and we're public, so we have to reimpliment them here.
-        // These should be kept in sync for the following classes:
+        // These should be kept in [....] for the following classes:
         // EncodingNLS, UTF7Encoding, UTF8Encoding, UTF32Encoding, ASCIIEncoding, UnicodeEncoding
         //
 
@@ -494,11 +497,8 @@ namespace System.Text
                 {
                     // No fallback, maybe we can do it fast
 #if !NO_FAST_UNICODE_LOOP
-#if BIGENDIAN       // If endianess is backwards then each pair of bytes would be backwards.
-                    if ( bigEndian &&
-#else
-                    if ( !bigEndian &&
-#endif // BIGENDIAN
+					// If endianess is backwards then each pair of bytes would be backwards.
+                    if ( (bigEndian ^ BitConverter.IsLittleEndian) &&
 
 #if WIN64           // 64 bit CPU needs to be long aligned for this to work.
                           charLeftOver == 0 && (unchecked((long)chars) & 7) == 0)
@@ -536,11 +536,7 @@ namespace System.Text
 
                                     // If they happen to be high/low/high/low, we may as well continue.  Check the next
                                     // bit to see if its set (low) or not (high) in the right pattern
-#if BIGENDIAN
-                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ 0xd800dc00d800dc00) != 0)
-#else
-                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ 0xdc00d800dc00d800) != 0)
-#endif
+                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ highLowPatternMask) != 0)
                                     {
                                         // Either there weren't 4 surrogates, or the 0x0400 bit was set when a high
                                         // was hoped for or the 0x0400 bit wasn't set where a low was hoped for.
@@ -778,11 +774,8 @@ namespace System.Text
                 {
                     // No fallback, maybe we can do it fast
 #if !NO_FAST_UNICODE_LOOP
-#if BIGENDIAN           // If endianess is backwards then each pair of bytes would be backwards.
-                    if ( bigEndian &&
-#else
-                    if ( !bigEndian &&
-#endif // BIGENDIAN
+					// If endianess is backwards then each pair of bytes would be backwards.
+                    if ( (bigEndian ^ BitConverter.IsLittleEndian) &&
 #if WIN64           // 64 bit CPU needs to be long aligned for this to work, 32 bit CPU needs to be 32 bit aligned
                         (unchecked((long)chars) & 7) == 0 && (unchecked((long)bytes) & 7) == 0 &&
 #else
@@ -829,11 +822,7 @@ namespace System.Text
 
                                     // If they happen to be high/low/high/low, we may as well continue.  Check the next
                                     // bit to see if its set (low) or not (high) in the right pattern
-#if BIGENDIAN
-                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ 0xd800dc00d800dc00) != 0)
-#else
-                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ 0xdc00d800dc00d800) != 0)
-#endif
+                                    if (((0xfc00fc00fc00fc00 & *longChars) ^ highLowPatternMask) != 0)
                                     {
                                         // Either there weren't 4 surrogates, or the 0x0400 bit was set when a high
                                         // was hoped for or the 0x0400 bit wasn't set where a low was hoped for.
@@ -863,11 +852,7 @@ namespace System.Text
                     // Also somehow this optimizes the above loop?  It seems to cause something above
                     // to get enregistered, but I haven't figured out how to make that happen without this loop.
                     else if ((charLeftOver == 0) &&
-#if BIGENDIAN
-                        bigEndian &&
-#else
-                        !bigEndian &&
-#endif // BIGENDIAN
+                        (bigEndian ^ BitConverter.IsLittleEndian) &&
 
 #if WIN64
                         (unchecked((long)chars) & 7) != (unchecked((long)bytes) & 7) &&  // Only do this if chars & bytes are out of line, otherwise faster loop'll be faster next time
@@ -1200,11 +1185,7 @@ namespace System.Text
                 // If we're aligned then maybe we can do it fast
                 // This'll hurt if we're unaligned because we'll always test but never be aligned
 #if !NO_FAST_UNICODE_LOOP
-#if BIGENDIAN
-                if (bigEndian &&
-#else // BIGENDIAN
-                if (!bigEndian &&
-#endif // BIGENDIAN
+                if ((bigEndian ^ BitConverter.IsLittleEndian) &&
 #if WIN64 // win64 has to be long aligned
                     (unchecked((long)bytes) & 7) == 0 &&
 #else
@@ -1242,11 +1223,7 @@ namespace System.Text
 
                                 // If they happen to be high/low/high/low, we may as well continue.  Check the next
                                 // bit to see if its set (low) or not (high) in the right pattern
-#if BIGENDIAN
-                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ 0xd800dc00d800dc00) != 0)
-#else
-                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ 0xdc00d800dc00d800) != 0)
-#endif
+                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ highLowPatternMask) != 0)
                                 {
                                     // Either there weren't 4 surrogates, or the 0x0400 bit was set when a high
                                     // was hoped for or the 0x0400 bit wasn't set where a low was hoped for.
@@ -1527,11 +1504,7 @@ namespace System.Text
                 // If we're aligned then maybe we can do it fast
                 // This'll hurt if we're unaligned because we'll always test but never be aligned
 #if !NO_FAST_UNICODE_LOOP
-#if BIGENDIAN
-                if (bigEndian &&
-#else // BIGENDIAN
-                if (!bigEndian &&
-#endif // BIGENDIAN
+                if ((bigEndian ^ BitConverter.IsLittleEndian) &&
 #if WIN64 // win64 has to be long aligned
                     (unchecked((long)chars) & 7) == 0 && (unchecked((long)bytes) & 7) == 0 &&
 #else
@@ -1578,11 +1551,7 @@ namespace System.Text
 
                                 // If they happen to be high/low/high/low, we may as well continue.  Check the next
                                 // bit to see if its set (low) or not (high) in the right pattern
-#if BIGENDIAN
-                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ 0xd800dc00d800dc00) != 0)
-#else
-                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ 0xdc00d800dc00d800) != 0)
-#endif
+                                if (((0xfc00fc00fc00fc00 & *longBytes) ^ highLowPatternMask) != 0)
                                 {
                                     // Either there weren't 4 surrogates, or the 0x0400 bit was set when a high
                                     // was hoped for or the 0x0400 bit wasn't set where a low was hoped for.

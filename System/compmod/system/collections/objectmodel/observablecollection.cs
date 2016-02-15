@@ -11,7 +11,7 @@
 // See spec at http://avalon/connecteddata/Specs/Collection%20Interfaces.mht
 //
 // History:
-//  11/22/2004 : Microsoft - created
+//  11/22/2004 : [....] - created
 //
 //---------------------------------------------------------------------------
 
@@ -31,7 +31,9 @@ namespace System.Collections.ObjectModel
     /// </summary>
 #if !FEATURE_NETCORE
     [Serializable()]
+#if !MOBILE
     [TypeForwardedFrom("WindowsBase, Version=3.0.0.0, Culture=Neutral, PublicKeyToken=31bf3856ad364e35")]
+#endif
 #endif
     public class ObservableCollection<T> : Collection<T>, INotifyCollectionChanged, INotifyPropertyChanged
     {
@@ -60,11 +62,11 @@ namespace System.Collections.ObjectModel
         public ObservableCollection(List<T> list)
             : base((list != null) ? new List<T>(list.Count) : list)
         {
-            // Workaround for VSWhidbey 
-
-
-
-
+            // Workaround for VSWhidbey bug 562681 (tracked by Windows bug 1369339).
+            // We should be able to simply call the base(list) ctor.  But Collection<T>
+            // doesn't copy the list (contrary to the documentation) - it uses the
+            // list directly as its storage.  So we do the copying here.
+            // 
             CopyFrom(list);
         }
 
@@ -385,7 +387,9 @@ namespace System.Collections.ObjectModel
         // this class helps prevent reentrant calls
 #if !FEATURE_NETCORE
         [Serializable()]
+#if !MOBILE
         [TypeForwardedFrom("WindowsBase, Version=3.0.0.0, Culture=Neutral, PublicKeyToken=31bf3856ad364e35")]
+#endif
 #endif
         private class SimpleMonitor : IDisposable
         {

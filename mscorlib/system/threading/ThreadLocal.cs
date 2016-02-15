@@ -8,7 +8,7 @@
 //
 // ThreadLocal.cs
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 //
 // A class that provides a simple, lightweight implementation of thread-local lazy-initialization, where a value is initialized once per accessing 
 // thread; this provides an alternative to using a ThreadStatic static variable and having 
@@ -586,7 +586,7 @@ namespace System.Threading
         /// </summary>
         private static int GetNewTableSize(int minSize)
         {
-            if ((uint)minSize > Array.MaxArrayLength)
+            if ((uint)minSize > Array_ReferenceSources.MaxArrayLength)
             {
                 // Intentionally return a value that will result in an OutOfMemoryException
                 return int.MaxValue;
@@ -621,9 +621,9 @@ namespace System.Threading
             newSize++;
 
             // Don't set newSize to more than Array.MaxArrayLength
-            if ((uint)newSize > Array.MaxArrayLength)
+            if ((uint)newSize > Array_ReferenceSources.MaxArrayLength)
             {
-                newSize = Array.MaxArrayLength;
+                newSize = Array_ReferenceSources.MaxArrayLength;
             }
 
             return newSize;

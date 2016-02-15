@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 //
@@ -146,6 +146,7 @@ namespace System.Security.Cryptography
         // since it enables access to SHA-2 operations. All currently supported OSes support RSA-AES.
         internal const int DefaultRsaProviderType = Constants.PROV_RSA_AES;
 
+#if !MONO
 #if FEATURE_CRYPTO || FEATURE_LEGACYNETCFCRYPTO
         // Private object for locking instead of locking on a public type for SQL reliability work.
         private static Object s_InternalSyncObject = new Object();
@@ -478,8 +479,9 @@ namespace System.Security.Cryptography
             }
         }
 #endif // FEATURE_CRYPTO
-
+#endif
         private static volatile RNGCryptoServiceProvider _rng;
+
         internal static RNGCryptoServiceProvider StaticRandomNumberGenerator {
             get {
                 if (_rng == null)
@@ -497,7 +499,7 @@ namespace System.Security.Cryptography
             StaticRandomNumberGenerator.GetBytes(key);
             return key;
         }
-
+#if !MONO
 #if FEATURE_CRYPTO
         /// <summary>
         ///     Read the FIPS policy from the pre-Vista registry key
@@ -543,11 +545,14 @@ namespace System.Security.Cryptography
             }
         }
 #endif //FEATURE_CRYPTO
-
+#endif
 #if FEATURE_CRYPTO || FEATURE_LEGACYNETCFCRYPTO
         // dwKeySize = 0 means the default key size
         [System.Security.SecurityCritical]  // auto-generated
         internal static bool HasAlgorithm (int dwCalg, int dwKeySize) {
+#if MONO
+            return true;
+#else
             bool r = false;
             // We need to take a lock here since we are querying the provider handle in a loop.
             // If multiple threads are racing in this code, not all algorithms/key sizes combinations
@@ -556,8 +561,9 @@ namespace System.Security.Cryptography
                 r = SearchForAlgorithm(StaticProvHandle, dwCalg, dwKeySize);
             }
             return r;
+#endif
         }
-
+#if !MONO
         internal static int ObjToAlgId(object hashAlg, OidGroup group) {
             if (hashAlg == null)
                 throw new ArgumentNullException("hashAlg");
@@ -609,7 +615,7 @@ namespace System.Security.Cryptography
 
             return hash;
         }
-
+#endif
         internal static String DiscardWhiteSpaces (string inputBuffer) {
             return DiscardWhiteSpaces(inputBuffer, 0, inputBuffer.Length);
         }
@@ -787,10 +793,14 @@ namespace System.Security.Cryptography
             return unchecked(new byte[] { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i });
         }
 
-
 #if FEATURE_CRYPTO || FEATURE_LEGACYNETCFCRYPTO
         [System.Security.SecurityCritical]  // auto-generated
         internal static byte[] RsaOaepEncrypt (RSA rsa, HashAlgorithm hash, PKCS1MaskGenerationMethod mgf, RandomNumberGenerator rng, byte[] data) {
+#if MONO
+            // It looks like .net managed implementation is buggy. It returns quite different
+            // result compare to old mono code, even PSLength calculation is quite different
+            return Mono.Security.Cryptography.PKCS1.Encrypt_OAEP (rsa, hash, rng, data);
+#else
             int cb = rsa.KeySize / 8;
 
             //  1. Hash the parameters to get PHash
@@ -800,7 +810,7 @@ namespace System.Security.Cryptography
             hash.ComputeHash(EmptyArray<Byte>.Value); // Use an empty octet string
 
             //  2.  Create DB object
-            byte[] DB = new byte[cb - cbHash];
+            byte[] DB = new byte[cb - cbHash + 1];
 
             //  Structure is as follows:
             //      pHash || PS || 01 || M
@@ -836,10 +846,17 @@ namespace System.Security.Cryptography
             Buffer.InternalBlockCopy(DB, 0, pad, seed.Length, DB.Length);
 
             return rsa.EncryptValue(pad);
+#endif
         }
 
         [System.Security.SecurityCritical]  // auto-generated
         internal static byte[] RsaOaepDecrypt (RSA rsa, HashAlgorithm hash, PKCS1MaskGenerationMethod mgf, byte[] encryptedData) {
+#if MONO
+            var result = Mono.Security.Cryptography.PKCS1.Decrypt_OAEP (rsa, hash, encryptedData);
+            if (result == null)
+                throw new CryptographicException(Environment.GetResourceString("Cryptography_OAEPDecoding"));
+            return result;
+#else
             int cb = rsa.KeySize / 8;
 
             // 1. Decode the input data
@@ -863,11 +880,12 @@ namespace System.Security.Cryptography
             if (zeros < 0 || zeros >= cbHash)
                 throw new CryptographicException(Environment.GetResourceString("Cryptography_OAEPDecoding"));
 
+            const int leading_zeros = 0;
             byte[] seed = new byte[cbHash];
-            Buffer.InternalBlockCopy(data, 0, seed, zeros, seed.Length - zeros);
+            Buffer.InternalBlockCopy(data, leading_zeros, seed, zeros, seed.Length - zeros);
 
-            byte[] DB = new byte[data.Length - seed.Length + zeros];
-            Buffer.InternalBlockCopy(data, seed.Length - zeros, DB, 0, DB.Length);
+            byte[] DB = new byte[data.Length - seed.Length + zeros - leading_zeros];
+            Buffer.InternalBlockCopy(data, seed.Length - zeros + leading_zeros, DB, 0, DB.Length);
 
             //  4.  seedMask = MGF(maskedDB, hLen);
             byte[] mask = mgf.GenerateMask(DB, seed.Length);
@@ -915,6 +933,7 @@ namespace System.Security.Cryptography
             byte[] output = new byte[DB.Length - i];
             Buffer.InternalBlockCopy(DB, i, output, 0, output.Length);
             return output;
+ #endif
         }
 
         [System.Security.SecurityCritical]  // auto-generated
@@ -986,7 +1005,7 @@ namespace System.Security.Cryptography
             }
             return true;
         }
-
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]  // Creates a process resource, but it can't be scoped.
         [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode), SuppressUnmanagedCodeSecurity]
@@ -1101,7 +1120,9 @@ namespace System.Security.Cryptography
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal static extern void _GenerateKey(SafeProvHandle hProv, int algid, CspProviderFlags flags, int keySize, ref SafeKeyHandle hKey);
+#endif
 #endif // FEATURE_CRYPTO
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -1149,6 +1170,17 @@ namespace System.Security.Cryptography
         [ResourceExposure(ResourceScope.Machine)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal static extern void _AcquireCSP(CspParameters param, ref SafeProvHandle hProv);
+
+#else
+        internal static bool _ProduceLegacyHmacValues()
+        {
+#if FULL_AOT_RUNTIME
+            return false;
+#else
+            return Environment.GetEnvironmentVariable ("legacyHMACMode") == "1";
+#endif
+        }
+#endif
     }
 }
 

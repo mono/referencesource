@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 using System;
@@ -168,7 +168,7 @@ namespace System.Reflection
         BaseType             = 0x72000000, 
         Invalid              = 0x7FFFFFFF, 
     }
-
+#if !MONO
     [Serializable]
     internal struct ConstArray
     {
@@ -190,7 +190,7 @@ namespace System.Reflection
             }
         }
 
-        // Keep the definition in sync with vm\ManagedMdImport.hpp
+        // Keep the definition in [....] with vm\ManagedMdImport.hpp
         internal int m_length;
         internal IntPtr m_constArray;
     }
@@ -256,7 +256,7 @@ namespace System.Reflection
 
     internal unsafe struct MetadataEnumResult
     {
-        // Keep the definition in sync with vm\ManagedMdImport.hpp
+        // Keep the definition in [....] with vm\ManagedMdImport.hpp
         private int[] largeResult;
         private int length;
         private fixed int smallResult[16];
@@ -756,6 +756,7 @@ namespace System.Reflection
             return String.Format(CultureInfo.CurrentCulture, "MetadataException HResult = {0:x}.", m_hr);
         }
     }
+#endif
 }
 
 

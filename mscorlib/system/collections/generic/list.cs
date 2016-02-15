@@ -7,7 +7,7 @@
 **
 ** Class:  List
 ** 
-** <OWNER>Microsoft</OWNER>
+** <OWNER>[....]</OWNER>
 **
 ** Purpose: Implements a generic, dynamically sized list as an 
 **          array.
@@ -172,13 +172,20 @@ namespace System.Collections.Generic {
         // Sets or Gets the element at the given index.
         // 
         public T this[int index] {
+#if MONO
+            [System.Runtime.CompilerServices.MethodImpl (System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+#endif
             get {
                 // Following trick can reduce the range check by one
                 if ((uint) index >= (uint)_size) {
                     ThrowHelper.ThrowArgumentOutOfRangeException();
                 }
                 Contract.EndContractBlock();
+#if MONO
+                return Array.UnsafeLoad (_items, index);
+#else
                 return _items[index]; 
+#endif
             }
 
             set {
@@ -407,7 +414,7 @@ namespace System.Collections.Generic {
                 int newCapacity = _items.Length == 0? _defaultCapacity : _items.Length * 2;
                 // Allow the list to grow to maximum possible capacity (~2G elements) before encountering overflow.
                 // Note that this check works even when _items.Length overflowed thanks to the (uint) cast
-                if ((uint)newCapacity > Array.MaxArrayLength) newCapacity = Array.MaxArrayLength;
+                if ((uint)newCapacity > Array_ReferenceSources.MaxArrayLength) newCapacity = Array_ReferenceSources.MaxArrayLength;
                 if (newCapacity < min) newCapacity = min;
                 Capacity = newCapacity;
             }

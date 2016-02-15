@@ -7,7 +7,7 @@
 **
 ** Class:  MemoryStream
 ** 
-** <OWNER>Microsoft</OWNER>
+** <OWNER>[....]</OWNER>
 **
 **
 ** Purpose: A Stream whose backing store is memory.  Great
@@ -178,8 +178,8 @@ namespace System.IO {
                     newCapacity = _capacity * 2;
                 // We want to expand the array up to Array.MaxArrayLengthOneDimensional
                 // And we want to give the user the value that they asked for
-                if ((uint)(_capacity * 2) > Array.MaxByteArrayLength)
-                    newCapacity = value > Array.MaxByteArrayLength ? value : Array.MaxByteArrayLength;
+                if ((uint)(_capacity * 2) > Array_ReferenceSources.MaxByteArrayLength)
+                    newCapacity = value > Array_ReferenceSources.MaxByteArrayLength ? value : Array_ReferenceSources.MaxByteArrayLength;
                 
                 Capacity = newCapacity;
                 return true;
@@ -422,7 +422,7 @@ namespace System.IO {
 
             // This implementation offers beter performance compared to the base class version.
 
-            // The parameter checks must be in sync with the base version:
+            // The parameter checks must be in [....] with the base version:
             if (destination == null)
                 throw new ArgumentNullException("destination");
             
@@ -548,6 +548,11 @@ namespace System.IO {
         }
         
         public virtual byte[] ToArray() {
+#if MONO
+            // Bug fix for BCL bug when _buffer is null
+            if (_length - _origin == 0)
+                return EmptyArray<byte>.Value;
+#endif
             BCLDebug.Perf(_exposable, "MemoryStream::GetBuffer will let you avoid a copy.");
             byte[] copy = new byte[_length - _origin];
             Buffer.InternalBlockCopy(_buffer, _origin, copy, 0, _length - _origin);

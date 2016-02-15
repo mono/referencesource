@@ -2,7 +2,7 @@
 // <copyright file="DbConnectionPoolIdentity.cs" company="Microsoft">
 //      Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.ProviderBase {
@@ -198,12 +198,14 @@ namespace System.Data.ProviderBase {
         }
 
         static private void IntegratedSecurityError(int caller) {
+#if !FULL_AOT_RUNTIME
             // passing 1,2,3,4,5 instead of true/false so that with a debugger
             // we could determine more easily which Win32 method call failed
             int lastError = Marshal.GetHRForLastWin32Error();
             if ((Win32_CheckTokenMembership != caller) || (E_NotImpersonationToken != lastError)) {
                 Marshal.ThrowExceptionForHR(lastError); // will only throw if (hresult < 0)
             }
+#endif
         }
         
     }

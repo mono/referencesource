@@ -2,7 +2,7 @@
 // <copyright file="SchemaImporter.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Xml.Serialization  {
@@ -56,10 +56,12 @@ namespace System.Xml.Serialization  {
             this.context = context;
             Schemas.SetCache(Context.Cache, Context.ShareTypes);
 
+#if CONFIGURATION_DEP
             SchemaImporterExtensionsSection section = PrivilegedConfigurationManager.GetSection(ConfigurationStrings.SchemaImporterExtensionsSectionPath) as SchemaImporterExtensionsSection;
             if (section != null)
                 extensions = section.SchemaImporterExtensionsInternal;
             else
+#endif
                 extensions = new SchemaImporterExtensionCollection();
         }
 

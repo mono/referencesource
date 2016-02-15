@@ -2,8 +2,8 @@
 // <copyright file="TdsParserStaticFunctionality.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.SqlClient {
@@ -33,6 +33,7 @@ namespace System.Data.SqlClient {
         [ResourceExposure(ResourceScope.None)]
         [ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)]
         static internal void AliasRegistryLookup(ref string host, ref string protocol) {
+#if !MOBILE
             if (!ADP.IsEmpty(host)) {
                 const String folder = "SOFTWARE\\Microsoft\\MSSQLServer\\Client\\ConnectTo";
                 // Put a try...catch... around this so we don't abort ANY connection if we can't read the registry.
@@ -66,7 +67,7 @@ namespace System.Data.SqlClient {
                         if (index+1 < aliasLookup.Length) {
                             string parsedAliasName = aliasLookup.Substring(index+1);
 
-                            // Fix 
+                            // Fix bug 298286
                             if ("dbnetlib" == parsedProtocol) {
                                     index = parsedAliasName.IndexOf(':');
                                     if (-1 != index && index + 1 < parsedAliasName.Length) {
@@ -87,6 +88,7 @@ namespace System.Data.SqlClient {
                     }
                 }
             }
+#endif
         }
 
         // Encrypt password to be sent to SQL Server
@@ -111,7 +113,11 @@ namespace System.Data.SqlClient {
         [ResourceExposure(ResourceScope.None)] // SxS: we use this method for TDS login only
         [ResourceConsumption(ResourceScope.Process, ResourceScope.Process)]
         static internal int GetCurrentProcessIdForTdsLoginOnly() {
+#if MOBILE
+            return 0;
+#else
             return SafeNativeMethods.GetCurrentProcessId();
+#endif
         }
 
 

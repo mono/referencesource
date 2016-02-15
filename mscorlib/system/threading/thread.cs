@@ -4,7 +4,7 @@
 //
 // ==--==
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 /*=============================================================================
 **
 ** Class: Thread
@@ -110,7 +110,7 @@ namespace System.Threading {
             }
         }
     }
-
+#if !MONO
     internal struct ThreadHandle
     {
         private IntPtr m_ptr;
@@ -120,13 +120,17 @@ namespace System.Threading {
             m_ptr = pThread;
         }
     }
-
+#endif
     // deliberately not [serializable]
     [ClassInterface(ClassInterfaceType.None)]
     [ComDefaultInterface(typeof(_Thread))]
 [System.Runtime.InteropServices.ComVisible(true)]
-    public sealed class Thread : CriticalFinalizerObject, _Thread
+    public sealed partial class Thread : CriticalFinalizerObject
+#if !MOBILE
+    , _Thread
+#endif
     {
+#if !MONO
         /*=========================================================================
         ** Data accessed from managed code that needs to be defined in
         ** ThreadBaseObject to maintain alignment between the two classes.
@@ -170,7 +174,7 @@ namespace System.Threading {
 #if DEBUG
         private bool m_ForbidExecutionContextMutation;
 #endif
-
+#endif
         /*=========================================================================
         ** This manager is responsible for storing the global data that is
         ** shared amongst all the thread local stores.
@@ -245,6 +249,7 @@ namespace System.Threading {
             Contract.EndContractBlock();
             SetStartHelper((Delegate)start, maxStackSize);
         }
+
         [System.Security.SecuritySafeCritical]  // auto-generated
         public Thread(ParameterizedThreadStart start) {
             if (start == null) {
@@ -264,7 +269,7 @@ namespace System.Threading {
             Contract.EndContractBlock();
             SetStartHelper((Delegate)start, maxStackSize);
         }
-
+#if !MONO
         [ComVisible(false)]
         public override int GetHashCode()
         {
@@ -293,7 +298,7 @@ namespace System.Threading {
 
             return new ThreadHandle(thread);
         }
-
+#endif
 
         /*=========================================================================
         ** Spawns off a new thread which will begin executing at the ThreadStart
@@ -371,7 +376,7 @@ namespace System.Threading {
             set { m_ExecutionContextBelongsToOuterScope = !value; }
         }
 
-#if DEBUG
+#if !MONO && DEBUG
         internal bool ForbidExecutionContextMutation
         {
             set { m_ForbidExecutionContextMutation = value; }
@@ -400,7 +405,7 @@ namespace System.Threading {
         internal ExecutionContext GetMutableExecutionContext()
         {
             Contract.Assert(Thread.CurrentThread == this);
-#if DEBUG
+#if !MONO && DEBUG
             Contract.Assert(!m_ForbidExecutionContextMutation);
 #endif
             if (m_ExecutionContext == null)
@@ -434,11 +439,13 @@ namespace System.Threading {
         }
 #endif //!FEATURE_CORECLR
 
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void StartInternal(IPrincipal principal, ref StackCrawlMark stackMark);
-#if FEATURE_COMPRESSEDSTACK
+#endif
+#if FEATURE_COMPRESSEDSTACK || MONO
         /// <internalonly/>
         [System.Security.SecurityCritical]  // auto-generated_required
         [DynamicSecurityMethodAttribute()]
@@ -447,7 +454,7 @@ namespace System.Threading {
         {
             throw new InvalidOperationException(Environment.GetResourceString("InvalidOperation_ThreadAPIsNotSupported"));
         }
-
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall), ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
@@ -457,7 +464,7 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall), ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         internal extern void RestoreAppDomainStack( IntPtr appDomainStack);
-        
+#endif
 
         /// <internalonly/>
         [System.Security.SecurityCritical]  // auto-generated_required
@@ -467,7 +474,7 @@ namespace System.Threading {
             throw new InvalidOperationException(Environment.GetResourceString("InvalidOperation_ThreadAPIsNotSupported"));
         }
 #endif // #if FEATURE_COMPRESSEDSTACK
-
+#if !MONO
 
         // Helper method to get a logical thread ID for StringBuilder (for
         // correctness) and for FileStream's async code path (for perf, to
@@ -550,8 +557,8 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void AbortInternal();
-
-#if !FEATURE_CORECLR
+#endif
+#if (!FEATURE_CORECLR && !MONO) || MONO_FEATURE_THREAD_ABORT
         /*=========================================================================
         ** Resets a thread abort.
         ** Should be called by trusted code only
@@ -571,7 +578,8 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void ResetAbortNative();
-
+#endif
+#if (!FEATURE_CORECLR && !MONO) || MONO_FEATURE_THREAD_SUSPEND_RESUME
         /*=========================================================================
         ** Suspends the thread. If the thread is already suspended, this call has
         ** no effect.
@@ -608,7 +616,9 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void ResumeInternal();
+#endif
 
+#if !FEATURE_CORECLR || MONO
         /*=========================================================================
         ** Interrupts a thread that is inside a Wait(), Sleep() or Join().  If that
         ** thread is not currently blocked in that manner, it will be interrupted
@@ -647,7 +657,7 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void SetPriorityNative(int priority);
-
+#if !MONO
         /*=========================================================================
         ** Returns true if the thread has been started and is not dead.
         =========================================================================*/
@@ -665,7 +675,7 @@ namespace System.Threading {
             [MethodImpl(MethodImplOptions.InternalCall)]
             get;
         }
-
+#endif
         /*=========================================================================
         ** Waits for the thread to die or for timeout milliseconds to elapse.
         ** Returns true if the thread died, or false if the wait timed out. If
@@ -691,6 +701,10 @@ namespace System.Threading {
         [HostProtection(Synchronization=true, ExternalThreading=true)]
         public bool Join(int millisecondsTimeout)
         {
+#if MONO
+            if (millisecondsTimeout < Timeout.Infinite)
+                throw new ArgumentOutOfRangeException("millisecondsTimeout", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
+#endif
             return JoinInternal(millisecondsTimeout);
         }
 
@@ -720,10 +734,16 @@ namespace System.Threading {
         [System.Security.SecuritySafeCritical]  // auto-generated
         public static void Sleep(int millisecondsTimeout)
         {
+#if MONO
+            if (millisecondsTimeout < Timeout.Infinite)
+                throw new ArgumentOutOfRangeException("millisecondsTimeout", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
+#endif
             SleepInternal(millisecondsTimeout);
+#if !MONO
             // Ensure we don't return to app code when the pause is underway
             if(AppDomainPauseManager.IsPaused)
                 AppDomainPauseManager.ResumeEvent.WaitOneWithoutFAS();
+#endif
         }
 
         public static void Sleep(TimeSpan timeout)
@@ -734,7 +754,7 @@ namespace System.Threading {
             Sleep((int)tm);
         }
 
-
+#if !MONO
         /* wait for a length of time proportial to 'iterations'.  Each iteration is should
            only take a few machine instructions.  Calling this API is preferable to coding
            a explict busy loop because the hardware can be informed that it is busy waiting. */
@@ -753,10 +773,14 @@ namespace System.Threading {
         {
             SpinWaitInternal(iterations);
         }
-
+#endif
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
+#if MONO
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+#else
         [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode)]
+#endif
         [SuppressUnmanagedCodeSecurity]
         [HostProtection(Synchronization = true, ExternalThreading = true),
          ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
@@ -769,7 +793,8 @@ namespace System.Threading {
         {
             return YieldInternal();
         }
-        
+
+#if !MONO
         public static Thread CurrentThread {
             [System.Security.SecuritySafeCritical]  // auto-generated
             [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
@@ -782,10 +807,13 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall), ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         private static extern Thread GetCurrentThreadNative();
-
+#endif
         [System.Security.SecurityCritical]  // auto-generated
         private void SetStartHelper(Delegate start, int maxStackSize)
         {
+#if MONO
+            maxStackSize = GetProcessDefaultStackSize(maxStackSize);
+#else
 #if FEATURE_CORECLR
             // We only support default stacks in CoreCLR
             Contract.Assert(maxStackSize == 0);
@@ -793,6 +821,7 @@ namespace System.Threading {
             // Only fully-trusted code is allowed to create "large" stacks.  Partial-trust falls back to
             // the default stack size.
             ulong defaultStackSize = GetProcessDefaultStackSize();
+
             if ((ulong)(uint)maxStackSize > defaultStackSize)
             {
                 try
@@ -805,6 +834,7 @@ namespace System.Threading {
                 }
             }
 #endif
+#endif
 
             ThreadHelper threadStartCallBack = new ThreadHelper(start);
             if(start is ThreadStart)
@@ -816,7 +846,7 @@ namespace System.Threading {
                 SetStart(new ParameterizedThreadStart(threadStartCallBack.ThreadStart), maxStackSize);
             }                
         }
-
+#if !MONO
         [SecurityCritical]
         [ResourceExposure(ResourceScope.None)]
         [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode)]
@@ -972,7 +1002,7 @@ namespace System.Threading {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private extern void StartupSetApartmentStateInternal();
 #endif // FEATURE_COMINTEROP_APARTMENT_SUPPORT
-
+#endif
         /*=========================================================================
         ** Allocates an un-named data slot. The slot is allocated on ALL the
         ** threads.
@@ -1051,7 +1081,7 @@ namespace System.Threading {
 
             dls.Store.SetData(slot, data);
         }
-
+#if !MONO
 
         // #threadCultureInfo
         //
@@ -1141,12 +1171,12 @@ namespace System.Threading {
                 if (CompatibilitySwitches.IsAppEarlierThanWindowsPhone8)
                 {
                     //
-                    // NetCF had a 
-
-
-
-
-
+                    // NetCF had a bug where Thread.Current{UI}Culture would set the culture for every thread in the process.  
+                    // This was because they stored the value in a regular static field (NetCF has no support for ThreadStatic fields).
+                    // Some apps depend on the broken behavior. We will emulate this behavior by redirecting setters to 
+                    // DefaultThreadCurrentUICulture. (Note that this property did not existed in NetCF and so it is fine to piggy back 
+                    // on it for the quirk.)
+                    //
                     CultureInfo.SetCurrentUICultureQuirk(value);
                     return;
                 }
@@ -1737,7 +1767,7 @@ namespace System.Threading {
             MemoryBarrier(); // Call MemoryBarrier to ensure the proper semantic in a portable way.
             address = value;
         }
-
+#endif
         [System.Security.SecuritySafeCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -1755,8 +1785,7 @@ namespace System.Threading {
                 return s_LocalDataStoreMgr;
             }
         }
-
-#if !FEATURE_CORECLR
+#if !MOBILE
         void _Thread.GetTypeInfoCount(out uint pcTInfo)
         {
             throw new NotImplementedException();
@@ -1777,6 +1806,7 @@ namespace System.Threading {
             throw new NotImplementedException();
         }
 #endif
+#if !MONO
 
         // Helper function to set the AbortReason for a thread abort.
         //  Checks that they're not alredy set, and then atomically updates
@@ -1800,7 +1830,7 @@ namespace System.Threading {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern void ClearAbortReason();
-
+#endif
 
     } // End of class Thread
 

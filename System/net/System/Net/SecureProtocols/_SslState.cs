@@ -19,12 +19,17 @@ Revision History:
     15-Sept-2003    Implemented concurent rehanshake
 
 --*/
+#if MONO_FEATURE_NEW_TLS && SECURITY_DEP
+#if MONO_X509_ALIAS
+extern alias PrebuiltSystem;
+using X509CertificateCollection = PrebuiltSystem::System.Security.Cryptography.X509Certificates.X509CertificateCollection;
+#endif
+using System.Security.Cryptography.X509Certificates;
 
 namespace System.Net.Security {
     using System;
     using System.IO;
     using System.Threading;
-    using System.Security.Cryptography.X509Certificates;
     using System.Collections;
     using System.Runtime.InteropServices;
     using System.Globalization;
@@ -34,7 +39,7 @@ namespace System.Net.Security {
     using System.ComponentModel;
     using System.Diagnostics;
 
-    internal class SslState {
+    internal partial class SslState {
 
         static int UniqueNameInteger = 123;
         static AsyncProtocolCallback _PartialFrameCallback  = new AsyncProtocolCallback(PartialFrameCallback);
@@ -73,7 +78,7 @@ namespace System.Net.Security {
         // This block is used by rehandshake code to buffer data decryptred with the old key
         private byte[]  _QueuedReadData;
         private int     _QueuedReadCount;
-        private bool    _PendingReHandshake;
+        private int    _PendingReHandshake;
         private const int _ConstMaxQueuedReadBytes = 1024 * 128;
 
         //
@@ -120,6 +125,17 @@ namespace System.Net.Security {
             _CertSelectionDelegate  = certSelectionCallback;
             _EncryptionPolicy = encryptionPolicy;
         }
+
+#if MONO
+        private readonly SSPIConfiguration _Configuration;
+
+        internal SslState(Stream innerStream, RemoteCertValidationCallback certValidationCallback, LocalCertSelectionCallback  certSelectionCallback, EncryptionPolicy encryptionPolicy, SSPIConfiguration config)
+            : this(innerStream, certValidationCallback, certSelectionCallback, encryptionPolicy)
+        {
+            _Configuration = config;
+        }
+#endif
+
         //
         //
         //
@@ -133,7 +149,7 @@ namespace System.Net.Security {
 
             //
             // We don;t support SSL alerts right now, hence any exception is fatal and cannot be retried
-            // Consider: make use if SSL alerts to re-sync SslStream on both sides for retrying.
+            // Consider: make use if SSL alerts to re-[....] SslStream on both sides for retrying.
             //
             if (_Exception != null && !_CanRetryAuthentication) {
                 throw _Exception;
@@ -175,8 +191,13 @@ namespace System.Net.Security {
 
             _Exception = null;
             try {
+#if MONO
+                _Context = new SecureChannel(targetHost, isServer, (SchProtocols)((int)enabledSslProtocols), serverCertificate, clientCertificates, remoteCertRequired,
+                    checkCertName, checkCertRevocationStatus, _EncryptionPolicy, _CertSelectionDelegate, _CertValidationDelegate, _Configuration);
+#else
                 _Context = new SecureChannel(targetHost, isServer, (SchProtocols)((int)enabledSslProtocols), serverCertificate, clientCertificates, remoteCertRequired,
                                                                checkCertName, checkCertRevocationStatus, _EncryptionPolicy, _CertSelectionDelegate);
+#endif
             }
             catch (Win32Exception e) {
                 throw new AuthenticationException(SR.GetString(SR.net_auth_SSPI), e);
@@ -593,7 +614,7 @@ namespace System.Net.Security {
                 // Note we are already inside the read, so checking for already going concurent handshake
                 _LockReadState = LockHandshake;
 
-                if (_PendingReHandshake)
+                if (Interlocked.CompareExchange (ref _PendingReHandshake, 1, 0) == 1)
                 {
                     // A concurent handshake is pending, resume
                     FinishRead(buffer);
@@ -623,7 +644,7 @@ namespace System.Net.Security {
                 // Async handshake is enqueued and will resume later
                 return;
             }
-            // Either Sync handshake is ready to go or async handshake won the ---- over write.
+            // Either [....] handshake is ready to go or async handshake won the ---- over write.
 
             // This will tell that we don't know the framing yet (what SSL version is)
             _Framing = Framing.None;
@@ -743,7 +764,7 @@ namespace System.Net.Security {
                 // Even if we are comleted, there could be a blob for sending.
                 // ONLY for TlsStream we want to delay it if the underlined stream is a NetworkStream that is subject to Nagle algorithm
                 // 
-                if ( message.Done && _ForceBufferingLastHandshakePayload && InnerStream.GetType() == typeof(NetworkStream) && !_PendingReHandshake)
+                if ( message.Done && _ForceBufferingLastHandshakePayload && InnerStream.GetType() == typeof(NetworkStream) && _PendingReHandshake == 0)
                 {
                     _LastPayload = message.Payload;
                 }
@@ -780,7 +801,7 @@ namespace System.Net.Security {
                 StartSendAuthResetSignal(null, asyncRequest, new AuthenticationException(SR.GetString(SR.net_auth_SSPI), message.GetException()));
                 return;
             }
-            else if (message.Done && !_PendingReHandshake)
+            else if (message.Done && _PendingReHandshake == 0)
             {
                 if (!CompleteHandshake())
                 {
@@ -800,13 +821,13 @@ namespace System.Net.Security {
         //
         private void StartReceiveBlob(byte[] buffer, AsyncProtocolRequest asyncRequest)
         {
-            if (_PendingReHandshake)
+            if (_PendingReHandshake == 1)
             {
                 if (CheckEnqueueHandshakeRead(ref buffer, asyncRequest))
                 {
                     return;
                 }
-                if (!_PendingReHandshake)
+                if (_PendingReHandshake == 0)
                 {
                     // read fed us renegotiate proceed to the next step
                     ProcessReceivedBlob(buffer, buffer.Length, asyncRequest);
@@ -893,7 +914,7 @@ namespace System.Net.Security {
                 throw new AuthenticationException(SR.GetString(SR.net_auth_eof), null);
             }
 
-            if (_PendingReHandshake)
+            if (_PendingReHandshake == 1)
             {
                 int offset = 0;
                 SecurityStatus status = PrivateDecryptData(buffer, ref offset, ref count);
@@ -920,7 +941,7 @@ namespace System.Net.Security {
                 }
 
                 // Got it, now we should expect only handshake messages
-                _PendingReHandshake = false;
+                _PendingReHandshake = 0;
                 if (offset != 0)
                 {
                     Buffer.BlockCopy(buffer, offset, buffer, 0, count);
@@ -1131,7 +1152,9 @@ namespace System.Net.Security {
                     return;
                 }
 
-                _LockReadState = LockRead;
+                if (_LockReadState != LockHandshake)
+                    _LockReadState = LockRead;
+
                 object obj = _QueuedReadStateRequest;
                 if (obj == null)
                 {
@@ -1288,7 +1311,7 @@ namespace System.Net.Security {
                 _QueuedWriteStateRequest = null;
                 if (obj is LazyAsyncResult)
                 {
-                    // sync handshake is waiting on other thread.
+                    // [....] handshake is waiting on other thread.
                     ((LazyAsyncResult)obj).InvokeCallback();
                 }
                 else
@@ -1364,7 +1387,7 @@ namespace System.Net.Security {
 
                     if (obj is LazyAsyncResult)
                     {
-                        // sync write is waiting on other thread.
+                        // [....] write is waiting on other thread.
                         ((LazyAsyncResult)obj).InvokeCallback();
                     }
                     else
@@ -1627,7 +1650,14 @@ namespace System.Net.Security {
 
             try
             {
-                ForceAuthentication(Context.IsServer, request.Buffer, request);
+		if (_PendingReHandshake == 1 && request.Buffer != null)
+		{
+		    ProcessReceivedBlob(request.Buffer, request.Buffer.Length, request);
+		}
+		else
+		{
+                    ForceAuthentication(IsServer, request.Buffer, request);
+		}
             }
             catch (Exception e)
             {
@@ -1641,7 +1671,7 @@ namespace System.Net.Security {
         {
             AsyncProtocolRequest asyncRequest = (AsyncProtocolRequest)state;
             try {
-                if (_PendingReHandshake)
+                if (_PendingReHandshake == 1 && asyncRequest.Buffer == null)
                 {
                     // resume as read a blob
                     StartReceiveBlob(asyncRequest.Buffer, asyncRequest);
@@ -1728,3 +1758,4 @@ namespace System.Net.Security {
 #endif
     }
 }
+#endif

@@ -15,6 +15,13 @@ Author:
 Revision History:
 
 --*/
+#if MONO_FEATURE_NEW_TLS && SECURITY_DEP
+#if MONO_X509_ALIAS
+extern alias PrebuiltSystem;
+using X509CertificateCollection = PrebuiltSystem::System.Security.Cryptography.X509Certificates.X509CertificateCollection;
+#endif
+using System.Security.Cryptography.X509Certificates;
+
 namespace System.Net.Security {
 using System;
 using System.IO;
@@ -24,7 +31,6 @@ using System.Security.Authentication;
 using System.Security.Authentication.ExtendedProtection;
 using System.Security.Permissions;
 using System.Security.Principal;
-using System.Security.Cryptography.X509Certificates;
 using System.Net.Configuration;
 
     [Flags]
@@ -60,7 +66,7 @@ using System.Net.Configuration;
     //
     //
     //
-    public class SslStream: AuthenticatedStream
+    public partial class SslStream: AuthenticatedStream
     {
         private SslState _SslState;
         private RemoteCertificateValidationCallback _userCertificateValidationCallback;
@@ -221,7 +227,11 @@ using System.Net.Configuration;
         {
             get
             {
+                #if MONO_NOT_SUPPORTED
                 return new SslStreamContext(this);
+                #else
+                throw new NotSupportedException();
+                #endif
             }
         }
 
@@ -488,6 +498,7 @@ using System.Net.Configuration;
    }
 
 }
+#endif
 
 
 

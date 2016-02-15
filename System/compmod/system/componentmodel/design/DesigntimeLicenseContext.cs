@@ -12,7 +12,6 @@ namespace System.ComponentModel.Design {
     using System.Net;
     using System.IO;
     using System.Reflection;
-    using System.Reflection.Emit;
     using System.Collections;
     using System.ComponentModel;
     using System.Globalization;
@@ -94,6 +93,7 @@ namespace System.ComponentModel.Design {
                     Debug.WriteLineIf(RuntimeLicenseContextSwitch.TraceVerbose,"rawfile: " + rawFile);
                     string codeBase;
                     
+#if !DISABLE_CAS_USE
                     // FileIOPermission is required for ApplicationBase in URL-hosted domains
                     FileIOPermission perm = new FileIOPermission(PermissionState.Unrestricted);
                     perm.Assert();
@@ -103,6 +103,9 @@ namespace System.ComponentModel.Design {
                     finally {
                         CodeAccessPermission.RevertAssert();
                     }
+#else
+                    codeBase = AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
+#endif
                     if (rawFile != null && codeBase != null) {
                         licenseFile = new Uri(new Uri(codeBase), rawFile);
                     }
@@ -130,6 +133,7 @@ namespace System.ComponentModel.Design {
                             // file://fullpath/foo.exe
                             //
                             string fileName;
+#if !DISABLE_CAS_USE
                             FileIOPermission perm = new FileIOPermission(PermissionState.Unrestricted);
                             perm.Assert();
                             try
@@ -141,6 +145,10 @@ namespace System.ComponentModel.Design {
                             {
                                 CodeAccessPermission.RevertAssert();
                             }
+#else
+                            fileName = GetLocalPath(asm.EscapedCodeBase);
+                            fileName = new FileInfo(fileName).Name;
+#endif
 
                             Stream s = asm.GetManifestResourceStream(fileName + ".licenses");
                             if (s == null) {
@@ -246,10 +254,11 @@ namespace System.ComponentModel.Design {
 
         static Stream OpenRead(Uri resourceUri) {
             Stream result = null;
-
+#if !DISABLE_CAS_USE
             PermissionSet perms = new PermissionSet(PermissionState.Unrestricted);
 
             perms.Assert();
+#endif
             try {
                 WebClient webClient = new WebClient();
                 webClient.Credentials = CredentialCache.DefaultCredentials;
@@ -258,10 +267,11 @@ namespace System.ComponentModel.Design {
             catch (Exception e) {
                 Debug.Fail(e.ToString());
             }
+#if !DISABLE_CAS_USE
             finally {
                 CodeAccessPermission.RevertAssert();
             }
-
+#endif
             return result;
         }
     }

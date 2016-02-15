@@ -238,7 +238,9 @@ namespace System.Net {
         /// </devdoc>
         public IWebProxy Proxy {
             get {
+#if !DISABLE_CAS_USE
                 ExceptionHelper.WebPermissionUnrestricted.Demand();
+#endif
                 if (!m_ProxySet) {
                     return WebRequest.InternalDefaultWebProxy;
                 } else {
@@ -246,7 +248,9 @@ namespace System.Net {
                 }
             }
             set {
+#if !DISABLE_CAS_USE
                 ExceptionHelper.WebPermissionUnrestricted.Demand();
+#endif
                 m_Proxy = value;
                 m_ProxySet = true;
             }
@@ -1795,7 +1799,11 @@ namespace System.Net {
             OnOpenReadCompleted((OpenReadCompletedEventArgs)arg);
         }
         private void OpenReadAsyncCallback(IAsyncResult result) {
+#if MONO
+            var lazyAsyncResult = (WebAsyncResult) result;
+#else
             LazyAsyncResult lazyAsyncResult = (LazyAsyncResult) result;
+#endif
             AsyncOperation asyncOp = (AsyncOperation) lazyAsyncResult.AsyncState;
             WebRequest request = (WebRequest) lazyAsyncResult.AsyncObject;
             Stream stream = null;
@@ -1866,7 +1874,11 @@ namespace System.Net {
             OnOpenWriteCompleted((OpenWriteCompletedEventArgs)arg);
         }
         private void OpenWriteAsyncCallback(IAsyncResult result) {
+#if MONO
+            var lazyAsyncResult = (WebAsyncResult) result;
+#else
             LazyAsyncResult lazyAsyncResult = (LazyAsyncResult) result;
+#endif
             AsyncOperation asyncOp = (AsyncOperation) lazyAsyncResult.AsyncState;
             WebRequest request = (WebRequest) lazyAsyncResult.AsyncObject;
             WebClientWriteStream stream = null;

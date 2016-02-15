@@ -4,7 +4,7 @@
 // 
 // ==--==
 //
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 /*=============================================================================
 **
 ** Class: ThreadPool
@@ -36,7 +36,6 @@ namespace System.Threading
     using System.Runtime.Remoting;
     using System.Security.Permissions;
     using System;
-    using Microsoft.Win32;
     using System.Runtime.CompilerServices;
     using System.Runtime.ConstrainedExecution;
     using System.Runtime.InteropServices;
@@ -45,6 +44,37 @@ namespace System.Threading
     using System.Diagnostics.Contracts;
     using System.Diagnostics.CodeAnalysis;
     using System.Diagnostics.Tracing;
+#if !MONO
+    using Microsoft.Win32;
+#endif
+
+    //
+    // Interface to something that can be queued to the TP.  This is implemented by
+    // QueueUserWorkItemCallback, Task, and potentially other internal types.
+    // For example, SemaphoreSlim represents callbacks using its own type that
+    // implements IThreadPoolWorkItem.
+    //
+    // If we decide to expose some of the workstealing
+    // stuff, this is NOT the thing we want to expose to the public.
+    //
+    internal interface IThreadPoolWorkItem
+    {
+        [SecurityCritical]
+        void ExecuteWorkItem();
+        [SecurityCritical]
+        void MarkAborted(ThreadAbortException tae);
+    }
+
+    [System.Runtime.InteropServices.ComVisible(true)]
+    public delegate void WaitCallback(Object state);
+
+    [System.Runtime.InteropServices.ComVisible(true)]
+    public delegate void WaitOrTimerCallback(Object state, bool timedOut);  // signalled or timed out
+
+    [System.Security.SecurityCritical]
+    [CLSCompliant(false)]
+    [System.Runtime.InteropServices.ComVisible(true)]
+    unsafe public delegate void IOCompletionCallback(uint errorCode, uint numBytes, NativeOverlapped* pOVERLAP);
 
     internal static class ThreadPoolGlobals
     {
@@ -101,7 +131,7 @@ namespace System.Threading
                             }
                             else if (i == array.Length - 1)
                             {
-                                // Must resize. If we raced and lost, we start over again.
+                                // Must resize. If we ----d and lost, we start over again.
                                 if (array != m_array)
                                     continue;
 
@@ -558,7 +588,9 @@ namespace System.Threading
         public ThreadPoolWorkQueue()
         {
             queueTail = queueHead = new QueueSegment();
+#if !MONO
             loggingEnabled = FrameworkEventSource.Log.IsEnabled(EventLevel.Verbose, FrameworkEventSource.Keywords.ThreadPool|FrameworkEventSource.Keywords.ThreadTransfer);
+#endif
         }
 
         [SecurityCritical]
@@ -618,8 +650,10 @@ namespace System.Threading
             if (!forceGlobal)
                 tl = ThreadPoolWorkQueueThreadLocals.threadLocals;
 
+#if !MONO
             if (loggingEnabled)
                 System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolEnqueueWorkObject(callback);
+#endif
             
             if (null != tl)
             {
@@ -728,8 +762,10 @@ namespace System.Threading
             //
             workQueue.MarkThreadRequestSatisfied();
 
+#if !MONO
             // Has the desire for logging changed since the last time we entered?
             workQueue.loggingEnabled = FrameworkEventSource.Log.IsEnabled(EventLevel.Verbose, FrameworkEventSource.Keywords.ThreadPool|FrameworkEventSource.Keywords.ThreadTransfer);
+#endif
 
             //
             // Assume that we're going to need another thread if this one returns to the VM.  We'll set this to 
@@ -788,8 +824,10 @@ namespace System.Threading
                     }
                     else
                     {
+#if !MONO
                         if (workQueue.loggingEnabled)
                             System.Diagnostics.Tracing.FrameworkEventSource.Log.ThreadPoolDequeueWorkObject(workItem);
+#endif
 
                         //
                         // Execute the workitem outside of any finally blocks, so that it can be aborted if needed.
@@ -927,6 +965,7 @@ namespace System.Threading
         }
     }
 
+#if !MONO
     internal sealed class RegisteredWaitHandleSafe : CriticalFinalizerObject
     {
         private static IntPtr InvalidHandle
@@ -934,7 +973,7 @@ namespace System.Threading
             [System.Security.SecuritySafeCritical]  // auto-generated
             get
             {
-                return Win32Native.INVALID_HANDLE_VALUE;
+                return new IntPtr(-1);
             }
         }
         private IntPtr registeredWaitHandle;
@@ -1105,14 +1144,14 @@ namespace System.Threading
         private static extern bool UnregisterWaitNative(IntPtr handle, SafeHandle waitObject);
     }
 
-[System.Runtime.InteropServices.ComVisible(true)]
-#if FEATURE_REMOTING    
+    [System.Runtime.InteropServices.ComVisible(true)]
+#if FEATURE_REMOTING
     public sealed class RegisteredWaitHandle : MarshalByRefObject {
 #else // FEATURE_REMOTING
     public sealed class RegisteredWaitHandle {
 #endif // FEATURE_REMOTING
         private RegisteredWaitHandleSafe internalRegisteredWait;
-    
+
         internal RegisteredWaitHandle()
         {
             internalRegisteredWait = new RegisteredWaitHandleSafe();
@@ -1129,23 +1168,17 @@ namespace System.Threading
            internalRegisteredWait.SetWaitObject(waitObject);
         }
 
-    
-[System.Security.SecuritySafeCritical]  // auto-generated
-[System.Runtime.InteropServices.ComVisible(true)]
+        [System.Security.SecuritySafeCritical]  // auto-generated
+        [System.Runtime.InteropServices.ComVisible(true)]
         // This is the only public method on this class
         public bool Unregister(
              WaitHandle     waitObject          // object to be notified when all callbacks to delegates have completed
-             )
+        )
         {
             return internalRegisteredWait.Unregister(waitObject);
         }
     }
-    
-    [System.Runtime.InteropServices.ComVisible(true)]
-    public delegate void WaitCallback(Object state);
-
-    [System.Runtime.InteropServices.ComVisible(true)]
-    public delegate void WaitOrTimerCallback(Object state, bool timedOut);  // signalled or timed out
+#endif // !MONO
 
     //
     // This type is necessary because VS 2010's debugger looks for a method named _ThreadPoolWaitCallbacck.PerformWaitCallback
@@ -1155,28 +1188,29 @@ namespace System.Threading
     //
     internal static class _ThreadPoolWaitCallback
     {
+#if FEATURE_INTERCEPTABLE_THREADPOOL_CALLBACK
+        // This feature is used by Xamarin.iOS to use an NSAutoreleasePool
+        // for every task done by the threadpool.
+        static Func<Func<bool>, bool> dispatcher;
+
+        internal static void SetDispatcher (Func<Func<bool>, bool> value)
+        {
+            dispatcher = value;
+        }
+#endif
+
         [System.Security.SecurityCritical]
         static internal bool PerformWaitCallback()
         {
+#if FEATURE_INTERCEPTABLE_THREADPOOL_CALLBACK
+            // store locally first to ensure another thread doesn't clear the field between checking for null and using it.
+            var dispatcher = _ThreadPoolWaitCallback.dispatcher;
+            if (dispatcher != null)
+                return dispatcher (ThreadPoolWorkQueue.Dispatch);
+#endif
+
             return ThreadPoolWorkQueue.Dispatch();
         }
-    }
-
-    //
-    // Interface to something that can be queued to the TP.  This is implemented by 
-    // QueueUserWorkItemCallback, Task, and potentially other internal types.
-    // For example, SemaphoreSlim represents callbacks using its own type that
-    // implements IThreadPoolWorkItem.
-    //
-    // If we decide to expose some of the workstealing
-    // stuff, this is NOT the thing we want to expose to the public.
-    //
-    internal interface IThreadPoolWorkItem
-    {
-        [SecurityCritical]
-        void ExecuteWorkItem();
-        [SecurityCritical]
-        void MarkAborted(ThreadAbortException tae);
     }
 
     internal sealed class QueueUserWorkItemCallback : IThreadPoolWorkItem
@@ -1346,18 +1380,9 @@ namespace System.Threading
 
     }
 
-    [System.Security.SecurityCritical]
-    [CLSCompliant(false)]
-    [System.Runtime.InteropServices.ComVisible(true)]
-    unsafe public delegate void IOCompletionCallback(uint errorCode, // Error code
-                                       uint numBytes, // No. of bytes transferred 
-                                       NativeOverlapped* pOVERLAP // ptr to OVERLAP structure
-                                       );   
-
     [HostProtection(Synchronization=true, ExternalThreading=true)]
     public static class ThreadPool
     {
-
         #if FEATURE_CORECLR
         [System.Security.SecurityCritical] // auto-generated
         #else
@@ -1444,6 +1469,7 @@ namespace System.Threading
              bool               compressStack
              )
         {
+#if !MONO
 #if FEATURE_REMOTING
             if (RemotingServices.IsTransparentProxy(waitObject))
                 throw new InvalidOperationException(Environment.GetResourceString("InvalidOperation_WaitOnTransparentProxy"));
@@ -1473,6 +1499,19 @@ namespace System.Threading
                 throw new ArgumentNullException("WaitOrTimerCallback");
             }
             return registeredWaitHandle;
+#else
+            if (waitObject == null)
+                throw new ArgumentNullException ("waitObject");
+            if (callBack == null)
+                throw new ArgumentNullException ("callBack");
+            if (millisecondsTimeOutInterval != Timeout.UnsignedInfinite && millisecondsTimeOutInterval > Int32.MaxValue)
+                throw new NotSupportedException ("Timeout is too big. Maximum is Int32.MaxValue");
+
+            RegisteredWaitHandle waiter = new RegisteredWaitHandle (waitObject, callBack, state, new TimeSpan (0, 0, 0, 0, (int) millisecondsTimeOutInterval), executeOnlyOnce);
+            QueueUserWorkItem (new WaitCallback (waiter.Wait), null);
+
+            return waiter;
+#endif
         }
 
 
@@ -1490,7 +1529,7 @@ namespace System.Threading
                 throw new ArgumentOutOfRangeException("millisecondsTimeOutInterval", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
             Contract.EndContractBlock();
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
-            return RegisterWaitForSingleObject(waitObject,callBack,state,(UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,true);
+            return RegisterWaitForSingleObject(waitObject,callBack,state,millisecondsTimeOutInterval == Timeout.Infinite ? Timeout.UnsignedInfinite : (UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,true);
         }
 
         [System.Security.SecurityCritical]  // auto-generated_required
@@ -1507,7 +1546,7 @@ namespace System.Threading
                 throw new ArgumentOutOfRangeException("millisecondsTimeOutInterval", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
             Contract.EndContractBlock();
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
-            return RegisterWaitForSingleObject(waitObject,callBack,state,(UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,false);
+            return RegisterWaitForSingleObject(waitObject,callBack,state,millisecondsTimeOutInterval == Timeout.Infinite ? Timeout.UnsignedInfinite : (UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,false);
         }
 
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -1524,7 +1563,7 @@ namespace System.Threading
                 throw new ArgumentOutOfRangeException("millisecondsTimeOutInterval", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
             Contract.EndContractBlock();
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
-            return RegisterWaitForSingleObject(waitObject,callBack,state,(UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,true);
+            return RegisterWaitForSingleObject(waitObject,callBack,state,millisecondsTimeOutInterval == Timeout.Infinite ? Timeout.UnsignedInfinite : (UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,true);
         }
 
         [System.Security.SecurityCritical]  // auto-generated_required
@@ -1541,7 +1580,7 @@ namespace System.Threading
                 throw new ArgumentOutOfRangeException("millisecondsTimeOutInterval", Environment.GetResourceString("ArgumentOutOfRange_NeedNonNegOrNegative1"));
             Contract.EndContractBlock();
             StackCrawlMark stackMark = StackCrawlMark.LookForMyCaller;
-            return RegisterWaitForSingleObject(waitObject,callBack,state,(UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,false);
+            return RegisterWaitForSingleObject(waitObject,callBack,state,millisecondsTimeOutInterval == Timeout.Infinite ? Timeout.UnsignedInfinite : (UInt32)millisecondsTimeOutInterval,executeOnlyOnce,ref stackMark,false);
         }
 
         [System.Security.SecuritySafeCritical]  // auto-generated
@@ -1775,8 +1814,7 @@ namespace System.Threading
 
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
-        [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode)]
-        [SuppressUnmanagedCodeSecurity]
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal static extern bool RequestWorkerThread();
 
         [System.Security.SecurityCritical]  // auto-generated
@@ -1864,10 +1902,10 @@ namespace System.Threading
 
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
-        [DllImport(JitHelpers.QCall, CharSet = CharSet.Unicode)]
-        [SuppressUnmanagedCodeSecurity]
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void InitializeVMTp(ref bool enableWorkerTracking);
 
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -1880,6 +1918,7 @@ namespace System.Threading
              ref StackCrawlMark     stackMark,
              bool                   compressStack   
              );
+#endif
 
 #if !FEATURE_CORECLR
         [System.Security.SecuritySafeCritical]  // auto-generated

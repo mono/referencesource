@@ -309,7 +309,9 @@ namespace System.Runtime.Diagnostics
             {
                 currentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionHandler);
                 this.SetLevel(this.TraceSource.Switch.Level);
+#if MONO_FEATURE_MULTIPLE_APPDOMAINS
                 currentDomain.DomainUnload += new EventHandler(ExitOrUnloadEventHandler);
+#endif
                 currentDomain.ProcessExit += new EventHandler(ExitOrUnloadEventHandler);
             }
         }
@@ -482,7 +484,7 @@ namespace System.Runtime.Diagnostics
                 {
                     OnShutdownTracing();
                 }
-#pragma warning suppress 56500 //Microsoft; Taken care of by FxCop
+#pragma warning suppress 56500 //[....]; Taken care of by FxCop
                 catch (Exception exception)
                 {
                     if (Fx.IsFatal(exception))

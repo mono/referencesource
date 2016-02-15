@@ -30,9 +30,10 @@ namespace System.Diagnostics {
         public static TraceListenerCollection Listeners {
             [HostProtection(SharedState=true)]
             get {
+#if !DISABLE_CAS_USE
                 // Do a full damand
                 new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Demand();
-                
+#endif
                 return TraceInternal.Listeners;
             }
         }
@@ -112,9 +113,10 @@ namespace System.Diagnostics {
         /// </devdoc>
         [System.Diagnostics.Conditional("TRACE")]
         public static void Close() {
+#if !DISABLE_CAS_USE
             // Do a full damand
             new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Demand();
-            
+ #endif
             TraceInternal.Close();
         }
 
@@ -163,7 +165,9 @@ namespace System.Diagnostics {
         }
 
         public static void Refresh() {
+#if CONFIGURATION_DEP
             DiagnosticsConfiguration.Refresh();
+#endif
             Switch.RefreshAll();
             TraceSource.RefreshAll();
             TraceInternal.Refresh();

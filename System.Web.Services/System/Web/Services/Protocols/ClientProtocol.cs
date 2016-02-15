@@ -63,7 +63,9 @@ namespace System.Web.Services.Protocols {
         private int timeout;
         private string connectionGroupName;
         private Encoding requestEncoding;
+#if !MONO
         private RemoteDebugger debugger;
+#endif
         private WebRequest pendingSyncRequest;
         object nullToken = new object();
         Hashtable asyncInvokes = Hashtable.Synchronized(new Hashtable());
@@ -88,7 +90,7 @@ namespace System.Web.Services.Protocols {
         ///    <para>[To be supplied.]</para>
         /// </devdoc>
         protected WebClientProtocol() {
-            this.timeout = 100000; // should be kept in sync with HttpWebRequest.Timeout default (see private WebRequest.DefaultTimeout)
+            this.timeout = 100000; // should be kept in [....] with HttpWebRequest.Timeout default (see private WebRequest.DefaultTimeout)
         }
 
         internal WebClientProtocol(WebClientProtocol protocol) {
@@ -399,6 +401,7 @@ namespace System.Web.Services.Protocols {
         }
 
         internal void NotifyClientCallOut(WebRequest request) {
+#if !MONO
             if (RemoteDebugger.IsClientCallOutEnabled()) {
                 debugger = new RemoteDebugger();
                 debugger.NotifyClientCallOut(request);
@@ -406,6 +409,7 @@ namespace System.Web.Services.Protocols {
             else {
                 debugger = null;
             }
+#endif
         }
 
         /// <include file='doc\ClientProtocol.uex' path='docs/doc[@for="WebClientProtocol.GetWebRequest"]/*' />
@@ -455,8 +459,10 @@ namespace System.Web.Services.Protocols {
                 }
             }
             finally {
+#if !MONO
                 if (debugger != null)
                     debugger.NotifyClientCallReturn(response);
+#endif
             }
             return response;
         }
@@ -472,8 +478,10 @@ namespace System.Web.Services.Protocols {
         /// </devdoc>
         protected virtual WebResponse GetWebResponse(WebRequest request, IAsyncResult result) {
             WebResponse response = request.EndGetResponse(result);
+#if !MONO
             if (response != null && debugger != null)
                 debugger.NotifyClientCallReturn(response);
+#endif
             return response;
         }
 

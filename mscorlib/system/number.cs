@@ -289,7 +289,17 @@ namespace System {
     {
         private Number() {
         }
-    
+        [System.Security.SecurityCritical]  // auto-generated
+        [ResourceExposure(ResourceScope.None)]
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        public unsafe static extern Boolean NumberBufferToDecimal(byte* number, ref Decimal value);
+
+        [System.Security.SecurityCritical]  // auto-generated
+        [ResourceExposure(ResourceScope.None)]
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal unsafe static extern Boolean NumberBufferToDouble(byte* number, ref Double value);
+
+#if !MONO
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -318,22 +328,53 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public static extern String FormatSingle(float value, String format, NumberFormatInfo info);
-    
-        [System.Security.SecurityCritical]  // auto-generated
-        [ResourceExposure(ResourceScope.None)]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        public unsafe static extern Boolean NumberBufferToDecimal(byte* number, ref Decimal value);
-        [System.Security.SecurityCritical]  // auto-generated
-        [ResourceExposure(ResourceScope.None)]
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal unsafe static extern Boolean NumberBufferToDouble(byte* number, ref Double value);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         [System.Runtime.CompilerServices.FriendAccessAllowed]
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         internal static extern unsafe string FormatNumberBuffer(byte* number, string format, NumberFormatInfo info, char* allDigits);
+#else
+        public static String FormatDecimal(Decimal value, String format, NumberFormatInfo info)
+	{
+		return NumberFormatter.NumberToString (format, value, info);
+	}
+	   
+        public static String FormatDouble(double value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
 
+        public static String FormatInt32(int value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
+
+        public static String FormatUInt32(uint value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
+
+        public static String FormatInt64(long value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
+
+        public static String FormatUInt64(ulong value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
+
+        public static String FormatSingle(float value, String format, NumberFormatInfo info)
+        {
+            return NumberFormatter.NumberToString (format, value, info);
+        }
+
+        internal static unsafe string FormatNumberBuffer(byte* number, string format, NumberFormatInfo info, char* allDigits)
+        {
+            throw new NotImplementedException ();
+        }
+#endif
         // Constants used by number parsing
         private const Int32 NumberMaxDigits = 50;
 
@@ -765,6 +806,7 @@ namespace System {
                 if (numfmt.ansiCurrencySymbol != null) {
                     ansicurrSymbol = numfmt.ansiCurrencySymbol;
                 }
+
                 // The idea here is to match the currency separators and on failure match the number separators to keep the perf of VB's IsNumeric fast.
                 // The values of decSep are setup to use the correct relevant separator (currency in the if part and decimal in the else part).
                 altdecSep = numfmt.NumberDecimalSeparator;
@@ -791,13 +833,13 @@ namespace System {
             while (true) {
                 // Eat whitespace unless we've found a sign which isn't followed by a currency symbol.
                 // "-Kr 1231.47" is legal but "- 1231.47" is not.
-                if (IsWhite(ch) && ((options & NumberStyles.AllowLeadingWhite) != 0) && (((state & StateSign) == 0) || (((state & StateSign) != 0) && (((state & StateCurrency) != 0) || numfmt.numberNegativePattern == 2)))) {
+                if (IsWhite(ch) && ((options & NumberStyles.AllowLeadingWhite) != 0) && (((state & StateSign) == 0) || (((state & StateSign) != 0) && (((state & StateCurrency) != 0) || numfmt.NumberNegativePattern == 2)))) {
                     // Do nothing here. We will increase p at the end of the loop.
                 }
-                else if ((signflag = (((options & NumberStyles.AllowLeadingSign) != 0) && ((state & StateSign) == 0))) && ((next = MatchChars(p, numfmt.positiveSign)) != null)) {
+                else if ((signflag = (((options & NumberStyles.AllowLeadingSign) != 0) && ((state & StateSign) == 0))) && ((next = MatchChars(p, numfmt.PositiveSign)) != null)) {
                     state |= StateSign;
                     p = next - 1;
-                } else if (signflag && (next = MatchChars(p, numfmt.negativeSign)) != null) {
+                } else if (signflag && (next = MatchChars(p, numfmt.NegativeSign)) != null) {
                     state |= StateSign;
                     number.sign = true;
                     p = next - 1;
@@ -867,10 +909,10 @@ namespace System {
                 if ((ch == 'E' || ch == 'e') && ((options & NumberStyles.AllowExponent) != 0)) {
                     char* temp = p;
                     ch = *++p;
-                    if ((next = MatchChars(p, numfmt.positiveSign)) != null) {
+                    if ((next = MatchChars(p, numfmt.PositiveSign)) != null) {
                         ch = *(p = next);
                     }
-                    else if ((next = MatchChars(p, numfmt.negativeSign)) != null) {
+                    else if ((next = MatchChars(p, numfmt.NegativeSign)) != null) {
                         ch = *(p = next);
                         negExp = true;
                     }
@@ -899,10 +941,10 @@ namespace System {
                 while (true) {
                     if (IsWhite(ch) && ((options & NumberStyles.AllowTrailingWhite) != 0)) {
                     }
-                    else if ((signflag = (((options & NumberStyles.AllowTrailingSign) != 0) && ((state & StateSign) == 0))) && (next = MatchChars(p, numfmt.positiveSign)) != null) {
+                    else if ((signflag = (((options & NumberStyles.AllowTrailingSign) != 0) && ((state & StateSign) == 0))) && (next = MatchChars(p, numfmt.PositiveSign)) != null) {
                         state |= StateSign;
                         p = next - 1;
-                    } else if (signflag && (next = MatchChars(p, numfmt.negativeSign)) != null) {
+                    } else if (signflag && (next = MatchChars(p, numfmt.NegativeSign)) != null) {
                         state |= StateSign;
                         number.sign = true;
                         p = next - 1;

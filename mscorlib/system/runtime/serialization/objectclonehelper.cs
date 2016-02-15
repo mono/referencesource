@@ -53,6 +53,7 @@ namespace System.Runtime.Serialization
             }
             else if (RemotingServices.IsTransparentProxy(serObj) || serObj is MarshalByRefObject)
             {
+#if !MONO
                 // We can only try to smuggle objref's for actual CLR objects
                 //   or for RemotingProxy's.
                 if (!RemotingServices.IsTransparentProxy(serObj) ||
@@ -78,7 +79,7 @@ namespace System.Runtime.Serialization
                         retObj = objRef;
                     }
                 }
-
+#endif
                 if (retObj == null)
                 {
                     // Deal with the non-smugglable remoting objects
@@ -92,7 +93,7 @@ namespace System.Runtime.Serialization
             }
             else
             {
-                // Getting here means a 
+                // Getting here means a bug in cloner
                 throw new ArgumentException(Environment.GetResourceString("Arg_SerializationException"));
             }
 

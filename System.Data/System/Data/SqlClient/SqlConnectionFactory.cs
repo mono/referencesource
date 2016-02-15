@@ -2,8 +2,8 @@
 // <copyright file="SqlConnectionFactory.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
-// <owner current="true" primary="false">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
+// <owner current="true" primary="false">[....]</owner>
 //------------------------------------------------------------------------------
 
 namespace System.Data.SqlClient
@@ -41,17 +41,19 @@ namespace System.Data.SqlClient
             SqlConnectionPoolKey key = (SqlConnectionPoolKey) poolKey;
             SqlInternalConnection result = null;
             SessionData recoverySessionData = null;
+            SqlConnection sqlOwningConnection = owningConnection as SqlConnection;
+            bool applyTransientFaultHandling = sqlOwningConnection != null ? sqlOwningConnection._applyTransientFaultHandling : false;
 
             SqlConnectionString userOpt = null;
             if (userOptions != null) {
                 userOpt = (SqlConnectionString)userOptions;
             }
-            else if (owningConnection != null) {
-                userOpt = (SqlConnectionString)(((SqlConnection)owningConnection).UserConnectionOptions);                
+            else if (sqlOwningConnection != null) {
+                userOpt = (SqlConnectionString)(sqlOwningConnection.UserConnectionOptions);                
             }
 
-            if (owningConnection != null) {
-                recoverySessionData = ((SqlConnection)owningConnection)._recoverySessionData;
+            if (sqlOwningConnection != null) {
+                recoverySessionData = sqlOwningConnection._recoverySessionData;
             }
 
             if (opt.ContextConnection) {
@@ -90,7 +92,7 @@ namespace System.Data.SqlClient
 
 
                             SqlConnectionString sseopt = new SqlConnectionString(opt, opt.DataSource, true /* user instance=true */, false /* set Enlist = false */);
-                            sseConnection = new SqlInternalConnectionTds(identity, sseopt, key.Credential, null, "", null, false);
+                            sseConnection = new SqlInternalConnectionTds(identity, sseopt, key.Credential, null, "", null, false, applyTransientFaultHandling: applyTransientFaultHandling);
                             // NOTE: Retrieve <UserInstanceName> here. This user instance name will be used below to connect to the Sql Express User Instance.
                             instanceName = sseConnection.InstanceName;
 
@@ -122,7 +124,7 @@ namespace System.Data.SqlClient
                     opt = new SqlConnectionString(opt, instanceName, false /* user instance=false */, null /* do not modify the Enlist value */);
                     poolGroupProviderInfo = null; // null so we do not pass to constructor below...
                 }
-                result = new SqlInternalConnectionTds(identity, opt, key.Credential, poolGroupProviderInfo, "", null, redirectedUserInstance, userOpt, recoverySessionData, pool, key.AccessToken);
+                result = new SqlInternalConnectionTds(identity, opt, key.Credential, poolGroupProviderInfo, "", null, redirectedUserInstance, userOpt, recoverySessionData, pool, key.AccessToken, applyTransientFaultHandling: applyTransientFaultHandling);
             }
             return result;
         }
@@ -180,14 +182,16 @@ namespace System.Data.SqlClient
                 throw SQL.NotAvailableOnContextConnection();
             }
 
-            NameValueCollection settings = (NameValueCollection)PrivilegedConfigurationManager.GetSection("system.data.sqlclient");
             Stream XMLStream =null;
+#if !NO_CONFIGURATION
+            NameValueCollection settings = (NameValueCollection)PrivilegedConfigurationManager.GetSection("system.data.sqlclient");
             if (settings != null){
                 string [] values = settings.GetValues(_metaDataXml);
                 if (values != null) {
                     XMLStream = ADP.GetXmlStreamFromValues(values, _metaDataXml);
                 }
             }
+#endif
 
             // if the xml was not obtained from machine.config use the embedded XML resource
             if (XMLStream == null){
@@ -306,9 +310,11 @@ namespace System.Data.SqlClient
 
         public static readonly SqlPerformanceCounters SingletonInstance = new SqlPerformanceCounters();
 
+#if !MOBILE
         [System.Diagnostics.PerformanceCounterPermissionAttribute(System.Security.Permissions.SecurityAction.Assert, PermissionAccess=PerformanceCounterPermissionAccess.Write, MachineName=".", CategoryName=CategoryName)]
         private SqlPerformanceCounters() : base (CategoryName, CategoryHelp) {
         }
+#endif
     }
 }
 

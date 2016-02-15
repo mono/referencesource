@@ -171,9 +171,12 @@ namespace System.Net {
         // Need a fast cached list of local addresses for internal use.
         private static volatile IPAddress[] _LocalAddresses;
         private static object _LocalAddressesLock;
+
+#if MONO_NOT_IMPLEMENTED
+#if !FEATURE_PAL
+
         private static volatile NetworkAddressChangePolled s_AddressChange;
 
-#if !FEATURE_PAL
         internal static IPAddress[] LocalAddresses
         {
             get
@@ -397,6 +400,7 @@ namespace System.Net {
             }
         }
 #endif // !FEATURE_PAL
+#endif
 
         private static object LocalAddressesLock
         {
@@ -422,7 +426,7 @@ namespace System.Net {
     }
     
     //
-    // A simple sync point, useful for deferring work.  Just an int value with helper methods.
+    // A simple [....] point, useful for deferring work.  Just an int value with helper methods.
     // This is used by HttpWebRequest to syncronize Reads/Writes while waiting for a 100-Continue response.
     //
     internal struct InterlockedGate
@@ -944,6 +948,7 @@ namespace System.Net {
 
     internal static class ExceptionHelper
     {
+#if !DISABLE_CAS_USE
         internal static readonly KeyContainerPermission KeyContainerPermissionOpen = new KeyContainerPermission(KeyContainerPermissionFlags.Open);
         internal static readonly WebPermission WebPermissionUnrestricted = new WebPermission(NetworkAccess.Connect);
         internal static readonly SecurityPermission UnmanagedPermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
@@ -951,7 +956,7 @@ namespace System.Net {
         internal static readonly SecurityPermission InfrastructurePermission = new SecurityPermission(SecurityPermissionFlag.Infrastructure);
         internal static readonly SecurityPermission ControlPolicyPermission = new SecurityPermission(SecurityPermissionFlag.ControlPolicy);
         internal static readonly SecurityPermission ControlPrincipalPermission = new SecurityPermission(SecurityPermissionFlag.ControlPrincipal);
-
+#endif
         internal static NotImplementedException MethodNotImplementedException {
             get {
                 return new NotImplementedException(SR.GetString(SR.net_MethodNotImplementedException));
@@ -976,6 +981,7 @@ namespace System.Net {
             }
         }
 
+#if MONO_FEATURE_WEB_STACK
         internal static WebException IsolatedException {
             get {
                 return new WebException(NetRes.GetWebStatusString("net_requestaborted", WebExceptionStatus.KeepAliveFailure),WebExceptionStatus.KeepAliveFailure, WebExceptionInternalStatus.Isolated, null);
@@ -999,10 +1005,9 @@ namespace System.Net {
                 return new WebException(NetRes.GetWebStatusString("net_requestaborted", WebExceptionStatus.RequestProhibitedByCachePolicy), WebExceptionStatus.RequestProhibitedByCachePolicy);
             }
         }
+#endif
     }
 
-#if !FEATURE_PAL
-    
     internal enum WindowsInstallationType
     { 
         Unknown = 0,
@@ -1196,6 +1201,8 @@ namespace System.Net {
         MatchTypeAnd    = 0x00,
         MatchTypeOr     = 0x01,
     }
+
+#if !FEATURE_PAL
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct ChainPolicyParameter {
@@ -1441,6 +1448,7 @@ typedef struct _SCHANNEL_CRED
 
     } // SecureCredential
 
+#endif // !FEATURE_PAL
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct SecurityBufferStruct {
@@ -1577,8 +1585,6 @@ typedef struct _SCHANNEL_CRED
         internal int dwApplicationDataOffset;
     }
 
-#endif // !FEATURE_PAL
-
     //
     // WebRequestPrefixElement
     //
@@ -1655,6 +1661,8 @@ typedef struct _SCHANNEL_CRED
 
     } // class PrefixListElement
 
+
+#if MONO_FEATURE_WEB_STACK
 
     //
     // HttpRequestCreator.
@@ -1773,6 +1781,7 @@ typedef struct _SCHANNEL_CRED
         }
 
     }
+#endif
 
 
     internal delegate bool HttpAbortDelegate(HttpWebRequest request, WebException webException);
@@ -1884,6 +1893,7 @@ typedef struct _SCHANNEL_CRED
         WriteWait = 2,
     }
 
+#if MONO_FEATURE_WEB_STACK
     //
     // HttpVerb - used to define various per Verb Properties
     //
@@ -1988,6 +1998,7 @@ typedef struct _SCHANNEL_CRED
             return D.ToUniversalTime().ToString("R", dateFormat);
         }
     }
+#endif
 
 #if !FEATURE_PAL
     // Proxy class for linking between ICertificatePolicy <--> ICertificateDecider

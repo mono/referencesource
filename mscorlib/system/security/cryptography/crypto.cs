@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 //
@@ -20,7 +20,7 @@ namespace System.Security.Cryptography {
     // and ciphertext-stealing (CTS).  Not all implementations will support all modes.
     [Serializable]
     [System.Runtime.InteropServices.ComVisible(true)]
-    public enum CipherMode {            // Please keep in sync with wincrypt.h
+    public enum CipherMode {            // Please keep in [....] with wincrypt.h
         CBC = 1,
         ECB = 2,
         OFB = 3,
@@ -75,6 +75,25 @@ namespace System.Security.Cryptography {
         public KeySizes(int minSize, int maxSize, int skipSize) {
             m_minSize = minSize; m_maxSize = maxSize; m_skipSize = skipSize;
         }
+
+
+#if MONO
+        internal bool IsLegal (int keySize)
+        {
+            int ks = keySize - MinSize;
+            bool result = ((ks >= 0) && (keySize <= MaxSize));
+            return ((SkipSize == 0) ? result : (result && (ks % SkipSize == 0)));
+        }
+
+        internal static bool IsLegalKeySize (KeySizes[] legalKeys, int size)
+        {
+            foreach (KeySizes legalKeySize in legalKeys) {
+                if (legalKeySize.IsLegal (size))
+                    return true;
+            }
+            return false;
+        }
+#endif
     }
 
     [Serializable]

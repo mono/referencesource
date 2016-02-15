@@ -17,8 +17,9 @@ namespace System {
     using System.Runtime;
 
 [System.Runtime.InteropServices.ComVisible(true)]
-    public static class Buffer
+    public static partial class Buffer
     {
+#if !MONO
         // Copies from one primitive array to another primitive array without
         // respecting types.  This calls memmove internally.  The count and 
         // offset parameters here are in bytes.  If you want to use traditional
@@ -28,7 +29,7 @@ namespace System {
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public static extern void BlockCopy(Array src, int srcOffset,
             Array dst, int dstOffset, int count);
-
+#endif
         // A very simple and efficient memmove that assumes all of the
         // parameter validation has already been done.  The count and offset
         // parameters here are in bytes.  If you want to use traditional
@@ -36,7 +37,7 @@ namespace System {
         [System.Security.SecuritySafeCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal static extern void InternalBlockCopy(Array src, int srcOffsetBytes,
+        internal static extern bool InternalBlockCopy(Array src, int srcOffsetBytes,
             Array dst, int dstOffsetBytes, int byteCount);
 
         // This is ported from the optimized CRT assembly in memchr.asm. The JIT generates 
@@ -116,14 +117,14 @@ namespace System {
             // If we don't have a match return -1;
             return -1;
         }
-        
+#if !MONO
         // Returns a bool to indicate if the array is of primitive data types
         // or not.
         [System.Security.SecurityCritical]  // auto-generated
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern bool IsPrimitiveTypeArray(Array array);
-
+#endif
         // Gets a particular byte out of the array.  The array must be an
         // array of primitives.  
         //
@@ -134,7 +135,7 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern byte _GetByte(Array array, int index);
-
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         public static byte GetByte(Array array, int index)
         {
@@ -152,7 +153,7 @@ namespace System {
 
             return _GetByte(array, index);
         }
-
+#endif
         // Sets a particular byte in an the array.  The array must be an
         // array of primitives.  
         //
@@ -163,7 +164,7 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void _SetByte(Array array, int index, byte value);
-
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         public static void SetByte(Array array, int index, byte value)
         {
@@ -182,7 +183,7 @@ namespace System {
             // Make the FCall to do the work
             _SetByte(array, index, value);
         }
-
+#endif
     
         // Gets a particular byte out of the array.  The array must be an
         // array of primitives.  
@@ -194,7 +195,7 @@ namespace System {
         [ResourceExposure(ResourceScope.None)]
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern int _ByteLength(Array array);
-
+#if !MONO
         [System.Security.SecuritySafeCritical]  // auto-generated
         public static int ByteLength(Array array)
         {
@@ -208,7 +209,7 @@ namespace System {
 
             return _ByteLength(array);
         }
-
+#endif
         [System.Security.SecurityCritical]  // auto-generated
         internal unsafe static void ZeroMemory(byte* src, long len)
         {
@@ -244,7 +245,7 @@ namespace System {
                 Memcpy(pDest + destIndex, pSrc + srcIndex, len);
             }
         }
-
+#if !MONO
         // This is tricky to get right AND fast, so lets make it useful for the whole Fx.
         // E.g. System.Runtime.WindowsRuntime!WindowsRuntimeBufferExtensions.MemCopy uses it.
 
@@ -562,5 +563,6 @@ namespace System {
             Memmove((byte*)destination, (byte*)source, checked((uint)sourceBytesToCopy));
 #endif // WIN64
         }
+#endif
     }
 }

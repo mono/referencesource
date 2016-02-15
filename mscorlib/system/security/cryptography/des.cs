@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 //
@@ -72,7 +72,11 @@ namespace System.Security.Cryptography {
         //
 
         new static public DES Create() {
+#if FULL_AOT_RUNTIME
+        return new System.Security.Cryptography.DESCryptoServiceProvider ();
+#else
             return Create("System.Security.Cryptography.DES");
+#endif
         }
 
         new static public DES Create(String algName) {

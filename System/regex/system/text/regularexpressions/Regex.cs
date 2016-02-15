@@ -13,7 +13,9 @@ namespace System.Text.RegularExpressions {
     using System.Threading;
     using System.Collections;
     using System.Reflection;
+#if !FULL_AOT_RUNTIME
     using System.Reflection.Emit;
+#endif
     using System.Globalization;
     using System.Security.Permissions;
     using System.Runtime.CompilerServices;
@@ -74,7 +76,12 @@ namespace System.Text.RegularExpressions {
         #if !FEATURE_NETCORE
         [NonSerialized()]
         #endif
-        public static readonly TimeSpan InfiniteMatchTimeout = Timeout.InfiniteTimeSpan;
+        public static readonly TimeSpan InfiniteMatchTimeout =
+#if BOOTSTRAP_BASIC
+		new TimeSpan (0, 0, 0, 0, Timeout.Infinite);	
+#else
+		Timeout.InfiniteTimeSpan;
+#endif
         #else
         internal static readonly TimeSpan InfiniteMatchTimeout = new TimeSpan(0, 0, 0, 0, Timeout.Infinite);
         #endif                              
@@ -205,7 +212,7 @@ namespace System.Text.RegularExpressions {
              && (options & ~(RegexOptions.ECMAScript | 
                              RegexOptions.IgnoreCase | 
                              RegexOptions.Multiline |
-#if !SILVERLIGHT || FEATURE_LEGACYNETCF
+#if !(SILVERLIGHT) || FEATURE_LEGACYNETCF 
                              RegexOptions.Compiled | 
 #endif
                              RegexOptions.CultureInvariant
@@ -214,7 +221,7 @@ namespace System.Text.RegularExpressions {
 #endif
                                                )) != 0)
                 throw new ArgumentOutOfRangeException("options");
-        
+
             ValidateMatchTimeout(matchTimeout);
 
             // Try to look up this regex in the cache.  We do this regardless of whether useCache is true since there's
@@ -261,7 +268,7 @@ namespace System.Text.RegularExpressions {
                 refsInitialized = true;
             }
 
-#if !SILVERLIGHT
+#if !(SILVERLIGHT || FULL_AOT_RUNTIME)
             // if the compile option is set, then compile the code if it's not already
             if (UseOptionC() && factory == null) {
                 factory = Compile(code, roptions);
@@ -390,7 +397,7 @@ namespace System.Text.RegularExpressions {
         }  // private static TimeSpan InitDefaultMatchTimeout
 #endif  // !SILVERLIGHT
 
-#if !SILVERLIGHT
+#if !SILVERLIGHT && !FULL_AOT_RUNTIME
         /* 
         * This method is here for perf reasons: if the call to RegexCompiler is NOT in the 
         * Regex constructor, we don't load RegexCompiler and its reflection classes when
@@ -398,7 +405,9 @@ namespace System.Text.RegularExpressions {
         * This method is internal virtual so the jit does not inline it.
         */
         [
+#if !DISABLE_CAS_USE
             HostProtection(MayLeakOnAbort=true),
+#endif
             MethodImplAttribute(MethodImplOptions.NoInlining)
         ]
         internal RegexRunnerFactory Compile(RegexCode code, RegexOptions roptions) {
@@ -436,7 +445,7 @@ namespace System.Text.RegularExpressions {
         ///       Unescapes any escaped characters in the input string.
         ///    </para>
         /// </devdoc>
-        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="Unescape", Justification="Microsoft: already shipped since v1 - can't fix without causing a breaking change")]
+        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="Unescape", Justification="[....]: already shipped since v1 - can't fix without causing a breaking change")]
         public static String Unescape(String str) {
             if (str==null)
                 throw new ArgumentNullException("str");
@@ -1183,13 +1192,15 @@ namespace System.Text.RegularExpressions {
 
 
         
-#if !SILVERLIGHT
+#if !(SILVERLIGHT || FULL_AOT_RUNTIME)
         /// <devdoc>
         /// </devdoc>
+#if !DISABLE_CAS_USE
         [HostProtection(MayLeakOnAbort=true)]
+#endif
         [ResourceExposure(ResourceScope.Machine)] // The AssemblyName is interesting.
         [ResourceConsumption(ResourceScope.Machine)]
-        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="Microsoft: already shipped since v1 - can't fix without causing a breaking change")]
+        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="[....]: already shipped since v1 - can't fix without causing a breaking change")]
         public static void CompileToAssembly(RegexCompilationInfo[] regexinfos, AssemblyName assemblyname) {
         
             CompileToAssemblyInternal(regexinfos, assemblyname, null, null);
@@ -1197,18 +1208,22 @@ namespace System.Text.RegularExpressions {
 
         /// <devdoc>
         /// </devdoc>
+#if !DISABLE_CAS_USE
         [HostProtection(MayLeakOnAbort=true)]
+#endif
         [ResourceExposure(ResourceScope.Machine)] // The AssemblyName is interesting.
         [ResourceConsumption(ResourceScope.Machine)]
-        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="Microsoft: already shipped since v1 - can't fix without causing a breaking change")]
+        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="[....]: already shipped since v1 - can't fix without causing a breaking change")]
         public static void CompileToAssembly(RegexCompilationInfo[] regexinfos, AssemblyName assemblyname, CustomAttributeBuilder[] attributes) {
             CompileToAssemblyInternal(regexinfos, assemblyname, attributes, null);
         }
 
+#if !DISABLE_CAS_USE
         [HostProtection(MayLeakOnAbort=true)]
+#endif
         [ResourceExposure(ResourceScope.Machine)]
         [ResourceConsumption(ResourceScope.Machine)]
-        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="Microsoft: already shipped since v1 - can't fix without causing a breaking change")]
+        [SuppressMessage("Microsoft.Naming","CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId="assemblyname", Justification="[....]: already shipped since v1 - can't fix without causing a breaking change")]
         public static void CompileToAssembly(RegexCompilationInfo[] regexinfos, AssemblyName assemblyname, CustomAttributeBuilder[] attributes, String resourceFile) {
             CompileToAssemblyInternal(regexinfos, assemblyname, attributes, resourceFile);
         }
@@ -1328,7 +1343,7 @@ namespace System.Text.RegularExpressions {
             return newcached;
         }
 
-#if !SILVERLIGHT
+#if !(SILVERLIGHT||FULL_AOT_RUNTIME)
         /*
          * True if the O option was set
          */
@@ -1336,6 +1351,8 @@ namespace System.Text.RegularExpressions {
         /// <devdoc>
         /// </devdoc>
         protected bool UseOptionC() {
+		/* Mono: Set to false until we investigate  https://bugzilla.xamarin.com/show_bug.cgi?id=25671 */
+	    return false;
             return(roptions & RegexOptions.Compiled) != 0;
         }
 #endif

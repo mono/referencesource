@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 //
@@ -22,7 +22,7 @@ namespace System.Security.Cryptography {
         public HMACSHA256 (byte[] key) {
             m_hashName = "SHA256";
 
-#if FEATURE_CRYPTO
+#if FEATURE_CRYPTO && !FULL_AOT_RUNTIME
             m_hash1 = GetHashAlgorithmWithFipsFallback(() => new SHA256Managed(), () => HashAlgorithm.Create("System.Security.Cryptography.SHA256CryptoServiceProvider"));
             m_hash2 = GetHashAlgorithmWithFipsFallback(() => new SHA256Managed(), () => HashAlgorithm.Create("System.Security.Cryptography.SHA256CryptoServiceProvider"));
 #else

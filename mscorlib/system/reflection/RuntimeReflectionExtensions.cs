@@ -22,6 +22,7 @@ namespace System.Reflection
         public static IEnumerable<PropertyInfo> GetRuntimeProperties(this Type type)
         {
             CheckAndThrow(type);
+
             return type.GetProperties(everything);
         }
         public static IEnumerable<EventInfo> GetRuntimeEvents(this Type type)

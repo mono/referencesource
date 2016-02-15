@@ -2,7 +2,7 @@
 // <copyright file="XsltSettings.cs" company="Microsoft">
 //     Copyright (c) Microsoft Corporation.  All rights reserved.
 // </copyright>
-// <owner current="true" primary="true">Microsoft</owner>
+// <owner current="true" primary="true">[....]</owner>
 // <spec>http://webdata/xml/specs/XslCompiledTransform.xml</spec>
 //------------------------------------------------------------------------------
 
@@ -16,7 +16,9 @@ namespace System.Xml.Xsl {
         private bool includeDebugInformation;
         private int  warningLevel = -1;     // -1 means not set
         private bool treatWarningsAsErrors;
+#if !DISABLE_XSLT_COMPILER
         private TempFileCollection tempFiles;
+#endif
 
         public XsltSettings() { }
 
@@ -63,9 +65,11 @@ namespace System.Xml.Xsl {
             set { treatWarningsAsErrors = value; }
         }
 
+#if !DISABLE_XSLT_COMPILER
         internal TempFileCollection TempFiles {
             get { return tempFiles;  }
             set { tempFiles = value; }
         }
+#endif
     }
 }

@@ -62,12 +62,7 @@ namespace System.Timers {
             if (interval <= 0)
                 throw new ArgumentException(SR.GetString(SR.InvalidParameter, "interval", interval));
                         
-            double roundedInterval = Math.Ceiling(interval);
-            if (roundedInterval > Int32.MaxValue || roundedInterval <= 0) {
-                throw new ArgumentException(SR.GetString(SR.InvalidParameter, "interval", interval));                
-            }
-
-            this.interval = (int) roundedInterval;
+            this.interval = CalculateRoundedInterval(interval, true);
         }
 
         /// <devdoc>
@@ -98,7 +93,7 @@ namespace System.Timers {
         /// is able
         /// to raise events at a defined interval.</para>
         /// </devdoc>
-        //Microsoft - The default value by design is false, don't change it.
+        //[....] - The default value by design is false, don't change it.
         [Category("Behavior"), TimersDescription(SR.TimerEnabled), DefaultValue(false)]
         public bool Enabled {
             get {
@@ -128,7 +123,7 @@ namespace System.Timers {
                                 throw new ObjectDisposedException(GetType().Name);
                             }
 
-                            int i = (int)Math.Ceiling(interval);
+                            int i = CalculateRoundedInterval(interval);
                             cookie = new Object();
                             timer = new System.Threading.Timer(callback, cookie, i, autoReset? i:Timeout.Infinite);
                         }
@@ -141,9 +136,19 @@ namespace System.Timers {
           }
         }
 
+        private static int CalculateRoundedInterval(double interval, bool argumentCheck = false) {
+            double roundedInterval = Math.Ceiling(interval);
+            if (roundedInterval > Int32.MaxValue || roundedInterval <= 0) {
+                if (argumentCheck)
+                    throw new ArgumentException(SR.GetString(SR.InvalidParameter, "interval", interval));
+
+                throw new ArgumentOutOfRangeException(SR.GetString(SR.InvalidParameter, "interval", interval));
+            }
+            return (int)roundedInterval;
+        }
 
         private void UpdateTimer() {
-            int i = (int)Math.Ceiling(interval);
+            int i = CalculateRoundedInterval(interval);
             timer.Change(i, autoReset? i :Timeout.Infinite );
         }
         
@@ -302,10 +307,13 @@ namespace System.Timers {
             if (!this.autoReset) {
                 enabled = false;
             }
-
+#if MONO
+            ElapsedEventArgs elapsedEventArgs = new ElapsedEventArgs(DateTime.Now);
+#else
             FILE_TIME filetime = new FILE_TIME();
             GetSystemTimeAsFileTime(ref filetime);
             ElapsedEventArgs elapsedEventArgs = new ElapsedEventArgs(filetime.ftTimeLow, filetime.ftTimeHigh); 
+#endif
             try {                                            
                 // To avoid ---- between remove handler and raising the event
                 ElapsedEventHandler intervalElapsed = this.onIntervalElapsed;
@@ -319,7 +327,7 @@ namespace System.Timers {
             catch {             
             }            
         }                        
-
+#if !MONO
         [StructLayout(LayoutKind.Sequential)]
         internal struct FILE_TIME {
             internal int ftTimeLow;
@@ -329,6 +337,7 @@ namespace System.Timers {
         [ResourceExposure(ResourceScope.None)]
         [DllImport(ExternDll.Kernel32), SuppressUnmanagedCodeSecurityAttribute()]
         internal static extern void GetSystemTimeAsFileTime(ref FILE_TIME lpSystemTimeAsFileTime);		
+#endif
     }
 }
 

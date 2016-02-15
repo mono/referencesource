@@ -3,7 +3,7 @@
 //   Copyright(c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 namespace System.Reflection
@@ -62,7 +62,14 @@ namespace System.Reflection
             throw new NotImplementedException();
         }
 
+#if MONO
+        public virtual extern int MetadataToken {
+            [System.Runtime.CompilerServices.MethodImplAttribute (System.Runtime.CompilerServices.MethodImplOptions.InternalCall)]
+            get;
+        }
+#else
         public virtual int MetadataToken { get { throw new InvalidOperationException(); } }
+#endif
 
         public virtual Module Module
         { 

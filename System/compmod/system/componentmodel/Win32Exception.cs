@@ -26,7 +26,7 @@ namespace System.ComponentModel {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2123:OverrideLinkDemandsShouldBeIdenticalToBase")]
     [Serializable]
     [SuppressUnmanagedCodeSecurity]
-    public class Win32Exception : ExternalException, ISerializable {
+    public partial class Win32Exception : ExternalException, ISerializable {
         /// <devdoc>
         ///    <para>Represents the Win32 error code associated with this exception. This 
         ///       field is read-only.</para>
@@ -75,7 +75,9 @@ namespace System.ComponentModel {
         }
 
         protected Win32Exception(SerializationInfo info, StreamingContext context) : base (info, context) {
+#if !DISABLE_CAS_USE
             IntSecurity.UnmanagedCode.Demand();
+#endif
             nativeErrorCode = info.GetInt32("NativeErrorCode");
         }
 
@@ -89,6 +91,7 @@ namespace System.ComponentModel {
             }
         }
 
+#if !MONO
         private static bool TryGetErrorMessage(int error, StringBuilder sb, out string errorMsg)
         {
             errorMsg = "";
@@ -150,7 +153,7 @@ namespace System.ComponentModel {
             // If you come here then a size as large as 65K is also not sufficient and so we give the generic errorMsg.
             return "Unknown error (0x" + Convert.ToString(error, 16) + ")";
         }
-
+#endif
         // Even though all we're exposing is the nativeErrorCode (which is also available via public property)
         // it's not a bad idea to have this in place.  Later, if more fields are added to this exception, 
         // we won't need to worry about accidentaly exposing them through this interface.

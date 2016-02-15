@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 namespace System.Security.Cryptography {
@@ -53,6 +53,11 @@ namespace System.Security.Cryptography {
         }
 
         public override byte[] CreateKeyExchange(byte[] rgbData) {
+#if MONO
+			if (rgbData == null)
+				throw new ArgumentNullException ("rgbData");
+#endif
+
             if (_rsaKey == null)
                 throw new CryptographicUnexpectedOperationException(Environment.GetResourceString("Cryptography_MissingKey"));
 

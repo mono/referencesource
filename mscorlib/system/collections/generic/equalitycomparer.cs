@@ -3,7 +3,7 @@
 //   Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
 // ==--==
-// <OWNER>Microsoft</OWNER>
+// <OWNER>[....]</OWNER>
 // 
 
 using System;
@@ -51,15 +51,30 @@ namespace System.Collections.Generic
             if (t == typeof(byte)) {
                 return (EqualityComparer<T>)(object)(new ByteEqualityComparer());
             }
+
+#if MOBILE
+            // Breaks .net serialization compatibility
+            if (t == typeof (string))
+                return (EqualityComparer<T>)(object)new InternalStringComparer ();
+#endif
+
             // If T implements IEquatable<T> return a GenericEqualityComparer<T>
             if (typeof(IEquatable<T>).IsAssignableFrom(t)) {
+#if MONO
+                return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(GenericEqualityComparer<>), t);
+#else
                 return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(GenericEqualityComparer<int>), t);
+#endif
             }
             // If T is a Nullable<U> where U implements IEquatable<U> return a NullableEqualityComparer<U>
             if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>)) {
                 RuntimeType u = (RuntimeType)t.GetGenericArguments()[0];
                 if (typeof(IEquatable<>).MakeGenericType(u).IsAssignableFrom(u)) {
+#if MONO
+                    return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(NullableEqualityComparer<>), u);
+#else
                     return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(NullableEqualityComparer<int>), u);
+#endif
                 }
             }
             
@@ -72,17 +87,33 @@ namespace System.Collections.Generic
                 // implementation of GetHashCode is more complex than for the other types.
                 switch (underlyingTypeCode) {
                     case TypeCode.Int16: // short
+#if MONO
+                        return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(ShortEnumEqualityComparer<>), t);
+#else
                         return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(ShortEnumEqualityComparer<short>), t);
+#endif
                     case TypeCode.SByte:
+#if MONO
+                        return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(SByteEnumEqualityComparer<>), t);
+#else
                         return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(SByteEnumEqualityComparer<sbyte>), t);
+#endif
                     case TypeCode.Int32:
                     case TypeCode.UInt32:
                     case TypeCode.Byte:
                     case TypeCode.UInt16: //ushort
+#if MONO
+                        return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(EnumEqualityComparer<>), t);
+#else
                         return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(EnumEqualityComparer<int>), t);
+#endif
                     case TypeCode.Int64:
                     case TypeCode.UInt64:
+#if MONO
+                        return (EqualityComparer<T>)RuntimeType.CreateInstanceForAnotherGenericParameter (typeof(LongEnumEqualityComparer<>), t);
+#else                    
                         return (EqualityComparer<T>)RuntimeTypeHandle.CreateInstanceForAnotherGenericParameter((RuntimeType)typeof(LongEnumEqualityComparer<long>), t);
+#endif
                 }
             }
             // Otherwise return an ObjectEqualityComparer<T>
@@ -493,6 +524,39 @@ namespace System.Collections.Generic
             // The LongEnumEqualityComparer does not exist on 4.0 so we need to serialize this comparer as ObjectEqualityComparer
             // to allow for roundtrip between 4.0 and 4.5.
             info.SetType(typeof(ObjectEqualityComparer<T>));
+        }
+    }
+
+    [Serializable]
+    sealed class InternalStringComparer : EqualityComparer<string> {
+    
+        public override int GetHashCode (string obj)
+        {
+            if (obj == null)
+                return 0;
+            return obj.GetHashCode ();
+        }
+    
+        public override bool Equals (string x, string y)
+        {
+            if (x == null)
+                return y == null;
+
+            if ((object) x == (object) y)
+                return true;
+
+            return x.Equals (y);
+        }
+
+        internal override int IndexOf (string[] array, string value, int startIndex, int count)
+        {
+            int endIndex = startIndex + count;
+            for (int i = startIndex; i < endIndex; ++i) {
+                if (Array.UnsafeLoad (array, i) == value)
+                    return i;
+            }
+
+            return -1;
         }
     }
 
