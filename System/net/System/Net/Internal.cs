@@ -948,7 +948,7 @@ namespace System.Net {
 
     internal static class ExceptionHelper
     {
-#if !DISABLE_CAS_USE
+#if !DISABLE_CAS_USE || MONO
         internal static readonly KeyContainerPermission KeyContainerPermissionOpen = new KeyContainerPermission(KeyContainerPermissionFlags.Open);
         internal static readonly WebPermission WebPermissionUnrestricted = new WebPermission(NetworkAccess.Connect);
         internal static readonly SecurityPermission UnmanagedPermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);

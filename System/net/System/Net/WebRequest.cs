@@ -4,6 +4,10 @@
 // </copyright>
 //------------------------------------------------------------------------------
 
+#if MONO
+#undef FEATURE_PAL
+#endif
+
 namespace System.Net {
     using System.Collections;
     using System.Collections.Generic;
@@ -34,7 +38,7 @@ namespace System.Net {
     ///       is an abstract class.</para>
     /// </devdoc>
     [Serializable]
-    public abstract class WebRequest : MarshalByRefObject, ISerializable
+    public abstract partial class WebRequest : MarshalByRefObject, ISerializable
     {
 #if FEATURE_PAL // ROTORTODO - after speed ups (like real JIT and GC) remove this one
 #if DEBUG
@@ -47,16 +51,21 @@ namespace System.Net {
 #endif // FEATURE_PAL
         private static volatile ArrayList s_PrefixList;
         private static Object s_InternalSyncObject;
+#if !MONO
         private static TimerThread.Queue s_DefaultTimerQueue = TimerThread.CreateQueue(DefaultTimeout);
+#endif
 
 #if !FEATURE_PAL
         private  AuthenticationLevel m_AuthenticationLevel;
         private  TokenImpersonationLevel m_ImpersonationLevel;
 #endif
+#if !MONO
         private RequestCachePolicy      m_CachePolicy;
         private RequestCacheProtocol    m_CacheProtocol;
         private RequestCacheBinding     m_CacheBinding;
+#endif
 
+#if !MONO
 #region designer support for System.Windows.dll
         internal class DesignerWebRequestCreate : IWebRequestCreate
         {
@@ -76,6 +85,7 @@ namespace System.Net {
         [EditorBrowsable(EditorBrowsableState.Never)]
         public static void RegisterPortableWebRequestCreator(IWebRequestCreate creator) { }       
 #endregion        
+#endif
 
         private static Object InternalSyncObject {
             get {
@@ -87,11 +97,13 @@ namespace System.Net {
             }
         }
 
+#if !MONO
         internal static TimerThread.Queue DefaultTimerQueue {
             get {
                 return s_DefaultTimerQueue;
             }
         }
+#endif
 
         /*++
 
@@ -496,6 +508,7 @@ namespace System.Net {
         }
         */
 
+#if !MONO
         /*++
 
             PrefixList - Returns And Initialize our prefix list.
@@ -534,6 +547,7 @@ namespace System.Net {
                 s_PrefixList = value;
             }
         }
+#endif
 
         // constructors
 
@@ -580,6 +594,7 @@ namespace System.Net {
         {
         }
 
+#if !MONO
         // This is a shortcut that would set the default policy for HTTP/HTTPS.
         // The default policy is overridden by any prefix-registered policy.
         // Will demand permission for set{}
@@ -609,7 +624,6 @@ namespace System.Net {
             }
         }
 
-
         void InternalSetCachePolicy(RequestCachePolicy policy){
             // Delayed creation of CacheProtocol until caching is actually turned on.
             if (m_CacheBinding != null &&
@@ -624,7 +638,7 @@ namespace System.Net {
 
             m_CachePolicy = policy;
         }
-
+#endif
 
         /// <devdoc>
         ///    <para>When overridden in a derived class, gets and
@@ -641,7 +655,6 @@ namespace System.Net {
                 throw ExceptionHelper.PropertyNotImplementedException;
             }
         }
-
 
         /// <devdoc>
         /// <para>When overridden in a derived class, gets a <see cref='Uri'/>
@@ -668,7 +681,6 @@ namespace System.Net {
                 throw ExceptionHelper.PropertyNotImplementedException;
             }
         }
-
 
         /*++
 
@@ -698,7 +710,6 @@ namespace System.Net {
                 throw ExceptionHelper.PropertyNotImplementedException;
             }
         }
-
 
         /// <devdoc>
         ///    <para>When
@@ -800,7 +811,6 @@ namespace System.Net {
             }
         }
 
-
         /// <devdoc>
         ///    <para>When overridden in a derived class,
         ///       returns a <see cref='System.IO.Stream'/> object that is used for writing data
@@ -829,7 +839,6 @@ namespace System.Net {
         public virtual IAsyncResult BeginGetResponse(AsyncCallback callback, object state) {
             throw ExceptionHelper.MethodNotImplementedException;
         }
-
 
         /// <devdoc>
         ///    <para>Returns a WebResponse object.</para>
@@ -860,6 +869,7 @@ namespace System.Net {
         [HostProtection(ExternalThreading = true)]
         public virtual Task<Stream> GetRequestStreamAsync()
         {
+#if !MONO
             IWebProxy proxy = null;
             try { proxy = Proxy; }
             catch (NotImplementedException) { }
@@ -887,6 +897,7 @@ namespace System.Net {
                 });
             }
             else
+#endif
             {
                 return Task.Run(() => Task<Stream>.Factory.FromAsync(this.BeginGetRequestStream, 
                     this.EndGetRequestStream, null));
@@ -897,6 +908,7 @@ namespace System.Net {
         [HostProtection(ExternalThreading = true)]
         public virtual Task<WebResponse> GetResponseAsync()
         {
+#if !MONO
             IWebProxy proxy = null;
             try { proxy = Proxy; }
             catch (NotImplementedException) { }
@@ -924,12 +936,14 @@ namespace System.Net {
                 });
             }
             else
+#endif
             {
                 return Task.Run(() => Task<WebResponse>.Factory.FromAsync(this.BeginGetResponse, 
                     this.EndGetResponse, null));
             }
         }
 
+#if !MONO
         // Security: We need an assert for a call into WindowsIdentity.GetCurrent
         [SecuritySafeCritical]
         [SecurityPermission(SecurityAction.Assert, Flags = SecurityPermissionFlag.ControlPrincipal)]
@@ -938,7 +952,7 @@ namespace System.Net {
         {
             return WindowsIdentity.GetCurrent();
         }
-
+#endif
 
         /// <summary>
         ///    <para>Aborts the Request</para>
@@ -947,6 +961,7 @@ namespace System.Net {
             throw ExceptionHelper.MethodNotImplementedException;
         }
 
+#if !MONO
         //
         //
         //
@@ -961,6 +976,7 @@ namespace System.Net {
                 m_CacheProtocol = value;
             }
         }
+#endif
 
 #if !FEATURE_PAL
         //
@@ -975,7 +991,7 @@ namespace System.Net {
             }
         }
 
-
+#if !MONO
         // Methods to retrieve the context of the "reading phase" and of the "writing phase" of the request.
         // Each request type can define what goes into what phase.  Typically, the writing phase corresponds to
         // GetRequestStream() and the reading phase to GetResponse(), but if there's no request body, both phases
@@ -996,7 +1012,7 @@ namespace System.Net {
         {
             throw ExceptionHelper.MethodNotImplementedException;
         }
-
+#endif
 
         //
         //
@@ -1011,6 +1027,7 @@ namespace System.Net {
         }
 #endif  // !FEATURE_PAL
 
+#if !MONO
         /// <summary>
         ///    <para>Provides an abstract way of having Async code callback into the request (saves a delegate)</para>
         /// </summary>
@@ -1162,7 +1179,6 @@ namespace System.Net {
             }
         }
 
-
         //
         internal void SetupCacheProtocol(Uri uri)
         {
@@ -1176,7 +1192,9 @@ namespace System.Net {
                 InternalSetCachePolicy(WebRequest.DefaultCachePolicy);
             }
         }
+#endif
 
+#if !MONO
         delegate void DelEtwFireBeginWRGet(object id, string uri, bool success, bool synchronous);
         delegate void DelEtwFireEndWRGet(object id, bool success, bool synchronous);
         delegate void DelEtwFireEndWRespGet(object id, bool success, bool synchronous, int statusCode);
@@ -1242,5 +1260,6 @@ namespace System.Net {
                 s_EtwFireEndGetRequestStream(this, success, synchronous);
             }
         }
+#endif
     } // class WebRequest
 } // namespace System.Net
