@@ -64,7 +64,7 @@ namespace System.Net {
         public WebParseErrorCode     Code;
     }
 
-
+#if !MONO
     struct TunnelStateObject {
         internal TunnelStateObject(HttpWebRequest r, Connection c){
             Connection = c;
@@ -3846,4 +3846,5 @@ done:
         }
 #endif
     }
+#endif
 }

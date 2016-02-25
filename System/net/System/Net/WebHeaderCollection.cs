@@ -44,7 +44,7 @@ namespace System.Net {
     ///    </para>
     /// </devdoc>
     [ComVisible(true), Serializable]
-    public class WebHeaderCollection : NameValueCollection, ISerializable {
+    public partial class WebHeaderCollection : NameValueCollection, ISerializable {
         //
         // Data and Constants
         //
@@ -246,7 +246,7 @@ namespace System.Net {
         // this is the object that created the header collection.
         private WebHeaderCollectionType m_Type;
 
-#if !FEATURE_PAL
+#if !FEATURE_PAL || MONO
         private bool AllowHttpRequestHeader {
             get {
                 if (m_Type==WebHeaderCollectionType.Unknown) {
@@ -378,7 +378,7 @@ namespace System.Net {
             }
             this.Remove(UnsafeNclNativeMethods.HttpApi.HTTP_RESPONSE_HEADER_ID.ToString((int)header));
         }
-#endif // !FEATURE_PAL
+#endif // !FEATURE_PAL || MONO
 
         // In general, HttpWebResponse headers aren't modified, so these methods don't support common headers.
 
