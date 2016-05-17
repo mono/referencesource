@@ -1,3 +1,5 @@
+**NOTE: This repository is no longer used to track Mono patches to referencesource after https://github.com/mono/mono/pull/2962, the code now lives in the Mono repository.**
+
 # .NET Reference Source
 
 The referencesource repository contains sources from [Microsoft .NET Reference Source](http://referencesource.microsoft.com/)
